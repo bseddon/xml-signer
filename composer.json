@@ -1,0 +1,24 @@
+{
+  "name": "bseddon/xml-signer",
+  "description": "A PHP to add and verify XAdES signature",
+  "license": "BSD-3-Clause",
+  "keywords": 
+  [
+    "xml",
+    "xmldsig",
+    "signature",
+    "security",
+	"XAdES",
+	"timestamp"
+  ],
+  "homepage": "https://github.com/bseddon/xml-signer",
+  "autoload": 
+  { 
+	"files": ["./autoload.php"] 
+  },
+  "require": 
+  {
+    "php": ">= 7.4",
+    "ext-openssl": "*"
+  }
+}
