@@ -8,17 +8,21 @@
     "xmldsig",
     "signature",
     "security",
-	"XAdES",
-	"timestamp"
+	  "XAdES",
+	  "timestamp",
+    "policy",
+    "commitment type",
+    "counter signature"
   ],
   "homepage": "https://github.com/bseddon/xml-signer",
   "autoload": 
   { 
-	"files": ["./autoload.php"] 
+	  "files": ["./autoload.php"] 
   },
   "require": 
   {
     "php": ">= 7.4",
-    "ext-openssl": "*"
+    "ext-openssl": "*",
+    "lyquidity/requester": "*"
   }
 }
