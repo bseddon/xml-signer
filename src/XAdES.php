@@ -9,10 +9,27 @@
  * Allows a document to be signed using one of the XAdES forms up to XAdES-T.
  * https://www.w3.org/TR/XAdES/
  * 
- * Builds on XMLSecurityDSig to sign and verify Xml documents using the XmlDSig 
+ * Builds on XMLSecurityDSig to sign and verify Xml documents using the XAdES 
  * extensions which take it into the domain of non-repudiation by defining XML 
  * formats for advanced electronic signatures that remain valid over long periods 
- * and are compliant with the European "Directive 1999/93/EC
+ * and are compliant with the European "Directive 1999/93/EC.
+ * 
+ * The XAdES support distinguishes two types of signing action:
+ * 	1) The creation of an initial signature complete will policy and commitment details
+ * 	2) Updates to add features like a timestamp and counter signatures.
+ * 
+ * If a document is signed second and subsequent times and a set XAdES signed properties
+ * already exist then an additional individual signature covering the existing properties.
+ * 
+ * If the action is to update an existing signature then second and subsequent signatures
+ * will be counter-signatures. In this case the signer is able to select the unique id
+ * of the signature their counter-signature will cover.
+ * 
+ * The caller has two ways to create the properties to be signed in the first place.
+ * The first is to call a set of functions.  The other is similar in style to xadesjs
+ * where a nested array of properties can be passed to the sign function and these
+ * properties will drive the process of creating the XAdES <SignedProperties> and
+ * XmlDSig <Signature> elements.
  */
 
 namespace lyquidity\xmldsig;
@@ -49,13 +66,17 @@ class XAdES extends XMLSecurityDSig
 	 * This query assumes the query context will be <SignedProperties>
 	 * @var string 
 	 */
-	const sigPolicyQuery = "./xa:SignedSignatureProperties/xa:SignaturePolicyIdentifier/xa:SignaturePolicyId";
-	const policyIdentifierQuery = self::sigPolicyQuery . "/xa:SigPolicyId/xa:Identifier";
-	const policyDigestQuery = self::sigPolicyQuery . "/xa:SigPolicyHash/ds:DigestValue";
-	const policyMethodQuery = self::sigPolicyQuery . "/xa:SigPolicyHash/ds:DigestMethod/@Algorithm";
+	const sigPolicyIdentifierQuery = "./xa:SignedSignatureProperties/xa:SignaturePolicyIdentifier";
+	const sigPolicyIdQuery = self::sigPolicyIdentifierQuery . "/xa:SignaturePolicyId";
+	const policyIdentifierQuery = self::sigPolicyIdQuery . "/xa:SigPolicyId/xa:Identifier";
+	const policyDigestQuery = self::sigPolicyIdQuery . "/xa:SigPolicyHash/ds:DigestValue";
+	const policyMethodQuery = self::sigPolicyIdQuery . "/xa:SigPolicyHash/ds:DigestMethod/@Algorithm";
+	const policyImpliedQuery = self::sigPolicyIdentifierQuery . "/xa:SignaturePolicyImplied";
+
+	const CommitmentTypeIdentifierQuery = "./xa:SignedDataObjectProperties/xa:CommitmentTypeIndication/xa:CommitmentTypeId/xa:Identifier";
 
 	// Countersignature query
-	const counterSignatureQuery = "";
+	const counterSignatureQuery = self::unsignedPropertiesQuery . "/";
 
 	/**
 	 * Extends the core XmlDSig verification to also verify <Object/QualifyingProperties/SignedProperties>
@@ -64,7 +85,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $certificateFile (optional) If provided it is an absolute path to the relevant .crt file or a path relative to the signature file
 	 * @return bool
 	 */
-	static function verifyXAdES( $signatureFile, $certificateFile = null )
+	function verifyXAdES( $signatureFile, $certificateFile = null )
 	{
 		if ( ! file_exists( $signatureFile ) )
 		{
@@ -112,22 +133,22 @@ class XAdES extends XMLSecurityDSig
 			}
 
 			// Create a new Security object
-			$XAdES  = new XAdES();
+			// $XAdES  = new XAdES();
 
-			$objDSig = $XAdES->locateSignature( $signatureDoc );
+			$objDSig = $this->locateSignature( $signatureDoc );
 			if ( ! $objDSig )
 			{
 				throw new \Exception("Cannot locate Signature Node");
 			}
-			$XAdES->canonicalizeSignedInfo();
+			$this->canonicalizeSignedInfo();
 			
-			$return = $XAdES->validateReference( $dataDoc? $dataDoc->documentElement : null );
+			$return = $this->validateReference( $dataDoc? $dataDoc->documentElement : null );
 
 			if (! $return) {
 				throw new \Exception("Reference Validation Failed");
 			}
 			
-			$objKey = $XAdES->locateKey();
+			$objKey = $this->locateKey();
 			if ( ! $objKey ) 
 			{
 				throw new \Exception("We have no idea about the key");
@@ -147,7 +168,7 @@ class XAdES extends XMLSecurityDSig
 				$objKey->loadKey( $certificateFile, true );
 			}
 
-			if ( $XAdES->verify( $objKey ) === 1 )
+			if ( $this->verify( $objKey ) === 1 )
 			{
 				echo "XAdES signature validated!\n";
 			} 
@@ -158,8 +179,7 @@ class XAdES extends XMLSecurityDSig
 
 			// Grab the serial number from the certificate used to compare it with the number stored in the signed properties
 			$certificateData = $objKeyInfo->getCertificateData();
-			$gmp = gmp_import( hex2bin( $certificateData['serialNumberHex'] ) );
-			$serialNumber = gmp_strval( $gmp );
+			$serialNumber = $certificateData['serialNumber' ];
 
 			// Get the serial number from the signed properties
 			$serialNumberElement = $xpath->query( self::serialNumberQuery, $signedProperties[0] );
@@ -182,62 +202,13 @@ class XAdES extends XMLSecurityDSig
 				throw new \Exception('The certificate issuer does not exist in the signature');
 			}
 
-			$certIssuer = array_reduce( explode( ',', $issuerElement[0]->textContent ), function( $carry, $part )
-			{
-				list( $code, $value ) = explode( '=', trim( $part ) );
-				// $value .= "x";
-				$carry[ $code ] = $value;
-				// OpenSSL and the .NET Framework seem to use different codes for some OIDs
-				if ( $code == "emailAddress" ) $carry['E'] = $value;
-				if ( $code == "E" ) $carry['emailAddress'] = $value;
-				if ( $code == "ST" ) $carry['S'] = $value;
-				if ( $code == "S" ) $carry['ST'] = $value;
-
-				return $carry;
-			}, array() );
-
-			// Are there any matches?  There should be.
-			$matched = array_intersect_key( $certIssuer, $issuer );
-			// Make sure the values are the same
-			foreach ( $matched as $code => $value )
-			{
-				if ( $certIssuer[ $code ] == $issuer[ $code ] ) continue;
-				$matched = false;
-				break;
-			}
-			if ( ! $matched )
+			if ( ! \lyquidity\OCSP\CertificateInfo::compareIssuerStrings( $issuerElement[0]->textContent, $issuer ) )
 			{
 				throw new \Exception('The certificate issuer in the signature does not match the certificate issuer number');
 			}
 
-			// If there is a policy and a policy hash
-			$policyIdentifier = $xpath->query( self::policyIdentifierQuery, $signedProperties[0] );
-			if ( count( $policyIdentifier ) )
-			{
-				$policyIdentifier = $policyIdentifier[0]->textContent;
-
-				// Is there a digest for the policy document?
-				$policyDigest = $xpath->query( self::policyDigestQuery, $signedProperties[0] );
-				if ( count( $policyDigest ) )
-				{
-					$policyDigest = $policyDigest[0]->textContent;
-
-					// Gat the hash method
-					$policymethod = $xpath->query( self::policyMethodQuery, $signedProperties[0] );
-					$policymethod = count( $policymethod ) ? $policymethod[0]->textContent : XMLSecurityDSig::SHA256;
-
-					$xml = file_get_contents( $XAdES->getPolicyDocument( $policyIdentifier ) );
-					$doc = new \DOMDocument();
-					$doc->loadXML( $xml );
-				
-					// Create a new Security object 
-					// $objXMLSecDSig  = new XMLSecurityDSig();
-					$output = $XAdES->processTransforms( $doc->documentElement, $doc->documentElement, false );
-					$digest = $XAdES->calculateDigest( $policymethod, $output );
-								
-					$match = $policyDigest == $digest;
-				}
-			}
+			// Look for a signature policy and validate.  Will either return or throw an error.
+			$this->validateSignaturePolicy( $signedProperties[0], $xpath );
 
 			echo "\n";
 		}
@@ -249,13 +220,92 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
+	 * Find and validate any signature policy
+	 * @param \DOMElement $signedProperties
+	 * @param \DOMXPath $xpath
+	 * @throws \Exception If no policy is found
+	 */
+	function validateSignaturePolicy( $signedProperties, $xpath )
+	{
+		// If the policy implied?  That is there is no policy document and instead some other agreed means to validate the properties
+		$policyImplied = $xpath->query( self::policyImpliedQuery, $signedProperties );
+		if ( count( $policyImplied ) )
+		{
+			$this->validateImpliedPolicy( $signedProperties, $xpath );
+			return;
+		}
+
+		// If there is a policy and a policy hash
+		$policyIdentifier = $xpath->query( self::policyIdentifierQuery, $signedProperties );
+		if ( ! count( $policyIdentifier ) )
+		{
+			throw new \Exception('A signature policy element is expected but is not in the signature document.');
+		}
+
+		$policyIdentifier = $policyIdentifier[0]->textContent;
+
+		// Is there a digest for the policy document?
+		$policyDigest = $xpath->query( self::policyDigestQuery, $signedProperties );
+		if ( count( $policyDigest ) )
+		{
+			$policyDigest = $policyDigest[0]->textContent;
+
+			// Gat the hash method
+			$policymethod = $xpath->query( self::policyMethodQuery, $signedProperties );
+			$policymethod = count( $policymethod ) ? $policymethod[0]->textContent : XMLSecurityDSig::SHA256;
+
+			$xml = file_get_contents( $this->getPolicyDocument( $policyIdentifier ) );
+			$policyDoc = new \DOMDocument();
+			$policyDoc->loadXML( $xml );
+		
+			// Create a new Security object 
+			// $objXMLSecDSig  = new XMLSecurityDSig();
+			$output = $this->processTransforms( $policyDoc->documentElement, $policyDoc->documentElement, false );
+			$digest = $this->calculateDigest( $policymethod, $output );
+			
+			if ( ! $policyDigest == $digest )
+			{
+				throw new \Exception('The digest generated from the policy document does not match the digest contained in the poliocy document');
+			}
+		}
+
+		$this->validateExplicitPolicy( $signedProperties, $xpath, $policyDoc );
+	}
+
+	/**
 	 * Its expected this will be overridden in a descendent class
 	 * @var string $policyIdentifier
 	 * @return string A path or URL to the policy document
 	 */
 	public function getPolicyDocument( $policyIdentifier )
 	{
-		return "http://nltaxonomie.nl/sbr/signature_policy_schema/v2.0/SBR-signature-policy-v2.0.xml";
+		return null;
+	}
+
+	/**
+	 * A descendent can provide a method to validate the signature properties when the policy is implied
+	 *
+	 * @param \DOMElement $signedProperties
+	 * @param \DOMXPath $xpath
+	 * @return void
+	 */
+	public function validateImpliedPolicy( $signedProperties, $xpath )
+	{
+		// Do nothing
+	}
+
+	/**
+	 * Overridden by a descendent to check the policy rules are met in the signature
+	 *
+	 * @param \DOMElement $signedProperties
+	 * @param \DOMXPath $sigDocXPath
+	 * @param \DOMElement $policyDocument
+	 * @return void
+	 * @throws \Exception If the signature does not meet the policy rules
+	 */
+	public function validateExplicitPolicy( $signedProperties, $sigDocXPath, $policyDocument )
+	{
+		// Do nothing
 	}
 
 	/**
