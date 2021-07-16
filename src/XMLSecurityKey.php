@@ -320,7 +320,16 @@ class XMLSecurityKey
      */
     public function getCertificateData()
     {
-        return openssl_x509_parse( $this->x509Certificate, true );
+        $loader = new \lyquidity\OCSP\CertificateLoader();
+        $cert = $loader->fromString( $this->x509Certificate );
+        $info = new \lyquidity\OCSP\CertificateInfo();
+
+        return array(
+            'serialNumber' => $info->extractSerialNumber( $cert, true ),
+            'issuer' => $info->getDNString( $cert, true )
+        );
+
+        // return openssl_x509_parse( $this->x509Certificate, true );
     }
 
     /**
