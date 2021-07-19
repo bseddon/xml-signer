@@ -38,7 +38,12 @@ namespace lyquidity\xmldsig;
  */
 class XAdES extends XMLSecurityDSig
 {
-	const NamespaceUrl = "http://uri.etsi.org/01903/v1.3.2#";
+	/**
+	 * Namespace defined in ETSI 319 132-1 V1.1.0 (2016-02)
+	 */
+	const NamespaceUrl2016 = "http://uri.etsi.org/01903/v1.3.2#";
+	const NamespaceUrl2003 = "http://uri.etsi.org/01903/v1.1.1#";
+
 	const counterSignatureTypeUrl = "http://uri.etsi.org/01903#CountersignedSignature";
 
 	// Xades specification requires "http://uri.etsi.org/01903/v1.1.1#SignedProperties" but the receiving party currently does not accept this value
@@ -48,6 +53,7 @@ class XAdES extends XMLSecurityDSig
 	const SignatureRootId = "signature-root";
 
 	// All the XPath queries assume ds=XMLSecurityDSig::XMLDSIGNS and xa=self::NamespaceUrl
+	const qualifyingPropertiesQuery = "/ds:Signature/ds:Object/*[local-name() = 'QualifyingProperties']";
 	const signedPropertiesQuery = "/ds:Signature/ds:Object/xa:QualifyingProperties/xa:SignedProperties[@Id=\"" . self::SignedPropertiesId . "\"]";
 	const objRefQuery = "./xa:SignedDataObjectProperties/xa:DataObjectFormat[@ObjectReference]/@ObjectReference";
 	const unsignedPropertiesQuery = "/ds:Signature/ds:Object/xa:QualifyingProperties/xa:unsignedProperties[@Id=\"" . self::UnsignedPropertiesId . "\"]";
@@ -60,6 +66,7 @@ class XAdES extends XMLSecurityDSig
 	const certQuery = "./xa:SignedSignatureProperties/xa:SigningCertificate/xa:Cert";
 	const serialNumberQuery = self::certQuery . "/xa:IssuerSerial/ds:X509SerialNumber";
 	const issuerQuery = self::certQuery . "/xa:IssuerSerial/ds:X509IssuerName";
+	const issuerSerialV2Query = self::certQuery . "/xa:IssuerSerialV2";
 
 	// Policy queries
 	/**
@@ -77,6 +84,8 @@ class XAdES extends XMLSecurityDSig
 
 	// Countersignature query
 	const counterSignatureQuery = self::unsignedPropertiesQuery . "/";
+
+	private $currentNamespace = self::NamespaceUrl2016;
 
 	/**
 	 * Extends the core XmlDSig verification to also verify <Object/QualifyingProperties/SignedProperties>
@@ -104,7 +113,12 @@ class XAdES extends XMLSecurityDSig
 
 			$xpath = new \DOMXPath( $signatureDoc );
 			$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
-			$xpath->registerNamespace( 'xa', self::NamespaceUrl );
+
+			// Get the namespace of the qualified properties as the namespace determines some of the elements to expect
+			$qualifiedProperties = $xpath->query( self::qualifyingPropertiesQuery );
+			$this->currentNamespace = $qualifiedProperties[0]->namespaceURI;
+
+			$xpath->registerNamespace( 'xa', $this->currentNamespace );
 
 			// This is the base node for most queries
 			$signedProperties = $xpath->evaluate( self::signedPropertiesQuery );
@@ -185,12 +199,17 @@ class XAdES extends XMLSecurityDSig
 			$serialNumberElement = $xpath->query( self::serialNumberQuery, $signedProperties[0] );
 			if ( ! count( $serialNumberElement ) )
 			{
-				throw new \Exception('The certificate serial number does not exist in the signature');
+				if ( $this->currentNamespace == self::NamespaceUrl2003 )
+					throw new \Exception('The certificate serial number does not exist in the signature');
+
+				if ( $serialNumber != $serialNumberElement[0]->textContent )
+				{
+					throw new \Exception('The certificate serial number in the signature does not match the certificate serial number');
+				}
 			}
-			else if ( $serialNumber != $serialNumberElement[0]->textContent )
-			{
-				throw new \Exception('The certificate serial number in the signature does not match the certificate serial number');
-			}
+
+			// If version 1.3.2 then there should be <IssuerSerialV2>
+			$issuerSerialElement = $xpath->query( self::issuerSerialV2Query, $signedProperties[0] );
 
 			// Grab the issuer from the certificate used to compare it with the number stored in the signed properties
 			/** @var string[] $issuer */
