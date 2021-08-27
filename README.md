@@ -42,7 +42,7 @@ Here's how to verify a document with a signature. The document here is on the en
 XAdES::verifyDocument( 'http://www.xbrlquery.com/xades/hashes-signed.xml' );
 ```
 
-Here's an example of signing an Xml document with a robust XAdES signature.  The url is to a real document but to be able to execute this example, it will be necessary to provide your own certificate and corresponding private key.  The output of this function when used with my test certificate and and private key [can be accessed here](hashes for nba with signature.xml).
+Here's an example of signing an Xml document with a robust XAdES signature.  The url is to a real document but to be able to execute this example, it will be necessary to provide your own certificate and corresponding private key.  The output of this function when used with my test certificate and and private key [can be accessed here](http://www.xbrlquery.com/xades/hashes%20for%20nba%20with%20signature.xml).
 
 ```php
 XAdES::signDocument( 
@@ -87,7 +87,7 @@ new SignerRoleV2(
 
 Obviously the longer form will need to be used if and when there is more than one claimed role.
 
-A potential simplification that cannot be used in the example is the file name.  Because the source is a URL, the generated signature cannot be saved into the same location so a location has to be supplied explicitly by instantiating the **InputResourceInfo** class.  However, if the file being signed is a local file with read/write permissions then only the file name needs to be provided and then the class instance will be created automatically.
+If the file references are just paths to a file then just the file path can be used.  In this example, this will apply to the certificate and private key reference.  This simplification cannot be used for the reference to the document to be signed because the source is a URL. As the generated signature cannot be saved into the same location in this case, an alternative location has to be supplied explicitly by instantiating the **InputResourceInfo** class and assigning values to the **saveLocation** and **saveFilename** properties.  This will also need to be done if the source is a local file that is read-only.
 
 ## Policies
 
