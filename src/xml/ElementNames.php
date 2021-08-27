@@ -20,6 +20,25 @@ class ElementNames
 	const DigestValue = "DigestValue";
 	const X509IssuerName = "X509IssuerName";
 	const X509SerialNumber = "X509SerialNumber";
+	const Transforms = "Transforms";
+	const Transform = "Transform";
+	const XPath = 'XPath';
+	const CanonicalizationMethod = "CanonicalizationMethod";
+	const Signature = "Signature";
+	const SignedInfo = "SignedInfo"; 
+	const SignatureValue = "SignatureValue"; 
+	const KeyInfo = "KeyInfo"; 
+	const Object = "Object";
+	const SignatureMethod = "SignatureMethod";
+	const KeyName = "KeyName";
+	const KeyValue = "KeyValue";
+	const RetrievalMethod = "RetrievalMethod";
+	const X509Data = "X509Data";
+	const PGPData = "PGPData";
+	const SPKIData = "SPKIData";
+	const MgmtData = "MgmtData";
+	const X509Certificate = "X509Certificate";
+	const Reference = "Reference";
 
 	// XAdES
 	const Any = "Any";
@@ -28,6 +47,7 @@ class ElementNames
 	const AttrAuthoritiesCertValues = "AttrAuthoritiesCertValues";
 	const AttributeRevocationValues = "AttributeRevocationValues";
 	const AttributeCertificateRefs = "AttributeCertificateRefs";
+	const AttributeCertificateRefsV2 = "AttributeCertificateRefsV2";
 	const AttributeRevocationRefs = "AttributeRevocationRefs";
 	const QualifyingProperties = "QualifyingProperties";
 	const QualifyingPropertiesReference = "QualifyingPropertiesReference";
@@ -43,7 +63,9 @@ class ElementNames
 	const SigningCertificateV2 = "SigningCertificateV2";
 	const SignaturePolicyIdentifier = "SignaturePolicyIdentifier";
 	const SignatureProductionPlace = "SignatureProductionPlace";
+	const SignatureProductionPlaceV2 = "SignatureProductionPlaceV2";
 	const SignerRole = "SignerRole";
+	const SignerRoleV2 = "SignerRoleV2";
 	const Cert = "Cert";
 	const CertDigest = "CertDigest";
 	const IssuerSerial = "IssuerSerial";
@@ -77,11 +99,15 @@ class ElementNames
 	const SigPolicyQualifiers = "SigPolicyQualifiers";
 	const SPURI = "SPURI";
 	const SPUserNotice = "SPUserNotice";
+	const SPDocSpecification = "SPDocSpecification";
+	const SigPolDocLocalURI = "SigPolDocLocalURI";
+	const SignaturePolicyDocument = "SignaturePolicyDocument";
 	const NoticeRef = "NoticeRef";
 	const ExplicitText = "ExplicitText";
 	const ClaimedRoles = "ClaimedRoles";
 	const ClaimedRole = "ClaimedRole";
 	const CertifiedRoles = "CertifiedRoles";
+	const CertifiedRolesV2 = "CertifiedRolesV2";
 	const CertifiedRole = "CertifiedRole";
 	const Organization = "Organization";
 	const NoticeNumbers = "NoticeNumbers";
@@ -93,9 +119,12 @@ class ElementNames
 	const CounterSignature = "CounterSignature";
 	const SignatureTimeStamp = "SignatureTimeStamp";
 	const CompleteCertificateRefs = "CompleteCertificateRefs";
+	const CompleteCertificateRefsV2 = "CompleteCertificateRefsV2";
 	const CompleteRevocationRefs = "CompleteRevocationRefs";
 	const SigAndRefsTimeStamp = "SigAndRefsTimeStamp";
+	const SigAndRefsTimeStampV2 = "SigAndRefsTimeStampV2";
 	const RefsOnlyTimeStamp = "RefsOnlyTimeStamp";
+	const RefsOnlyTimeStampV2 = "RefsOnlyTimeStampV2";
 	const CertificateValues = "CertificateValues";
 	const RevocationValues = "RevocationValues";
 	const ArchiveTimeStamp = "ArchiveTimeStamp";
@@ -124,4 +153,13 @@ class ElementNames
 	const EncapsulatedOCSPValue = "EncapsulatedOCSPValue";
 	const ReferenceInfo = "ReferenceInfo";
 	const Include = "Include";
+	const StreetAddress = "StreetAddress";
+	const OtherAttributeCertificate = "OtherAttributeCertificate";
+	const X509AttributeCertificate = "X509AttributeCertificate";
+	const SignedAssertion = "SignedAssertion";
+	const SignedAssertions = "SignedAssertions";
+	const ReferenceInfoType = "ReferenceInfoType";
+	const EncapsulatedPKIData = "EncapsulatedPKIData";
+	const GenericTimeStamp = "GenericTimeStamp";
+	const SignaturePolicyStore = "SignaturePolicyStore";
 }

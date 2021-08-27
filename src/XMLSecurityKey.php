@@ -98,9 +98,9 @@ class XMLSecurityKey
     /**
      * This variable contains the certificate as a string if this key represents an X509-certificate.
      * If this key doesn't represent a certificate, this will be null.
-     * @var string|null
+     * @var string[]
      */
-    private $x509Certificate = null;
+    private $x509Certificates = array();
 
     /**
      * This variable contains the certificate thumbprint if we have loaded an X509-certificate.
@@ -316,20 +316,20 @@ class XMLSecurityKey
 
     /**
      * Get the serial number of a certificate
+     * @param int $index
      * @return string[]
      */
-    public function getCertificateData()
+    public function getCertificateData( $index = 0 )
     {
         $loader = new \lyquidity\OCSP\CertificateLoader();
-        $cert = $loader->fromString( $this->x509Certificate );
+        $cert = $loader->fromString( $this->x509Certificates[ $index ] );
         $info = new \lyquidity\OCSP\CertificateInfo();
 
         return array(
             'serialNumber' => $info->extractSerialNumber( $cert, true ),
-            'issuer' => $info->getDNString( $cert, true )
+            'issuer' => $info->getDNString( $cert, true ),
+            'cert' => $cert
         );
-
-        // return openssl_x509_parse( $this->x509Certificate, true );
     }
 
     /**
@@ -393,12 +393,12 @@ class XMLSecurityKey
         {
             $this->key = openssl_x509_read( $this->key );
             openssl_x509_export( $this->key, $str_cert );
-            $this->x509Certificate = $str_cert;
+            $this->x509Certificates[0] = $str_cert;
             $this->key = $str_cert;
         }
         else
         {
-            $this->x509Certificate = null;
+            $this->x509Certificates[0] = null;
         }
 
         if ( $this->cryptParams['library'] == 'openssl' )
@@ -830,16 +830,27 @@ class XMLSecurityKey
     }
 
     /**
+     * Adds a certificate from the signature to the list of x509Certificate
+     *
+     * @param string $cert A certificate in PEM format
+     * @return void
+     */
+    public function addX509Certificate( $cert )
+    {
+        array_push( $this->x509Certificates, $cert );
+    }
+
+    /**
      * Retrieve the X509 certificate this key represents.
      *
      * Will return the X509 certificate in PEM-format if this key represents
      * an X509 certificate.
-     *
+     * @param int $index
      * @return string The X509 certificate or null if this key doesn't represent an X509-certificate.
      */
-    public function getX509Certificate()
+    public function getX509Certificate( $index = 0 )
     {
-        return $this->x509Certificate;
+        return $this->x509Certificates[ $index ];
     }
 
     /**

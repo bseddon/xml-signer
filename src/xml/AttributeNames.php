@@ -24,8 +24,9 @@ class AttributeNames
 	const Target = "Target";
 	const ObjectReference = "ObjectReference";
 	const Qualifier = "Qualifier";
-	const Uri = "uri";
+	const Uri = "Uri";
 	const URI = "URI";
 	const ReferencedData = "referencedData";
-
+	const Filter = "Filter";
+	const Type = "Type";
 }

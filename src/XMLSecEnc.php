@@ -488,10 +488,13 @@ class XMLSecEnc
                     return XMLSecurityKey::fromEncryptedKeyElement($child);
                 case 'X509Data':
                     if ($x509certNodes = $child->getElementsByTagName('X509Certificate')) {
-                        if ($x509certNodes->length > 0) {
-                            $x509cert = $x509certNodes->item(0)->textContent;
+                        foreach( $x509certNodes as $x509certNode )
+                        {
+                            $x509cert = $x509certNode->textContent;
                             $x509cert = str_replace(array("\r", "\n", " "), "", $x509cert);
                             $x509cert = "-----BEGIN CERTIFICATE-----\n".chunk_split($x509cert, 64, "\n")."-----END CERTIFICATE-----\n";
+                            $objBaseKey->addX509Certificate( $x509cert );
+                            if ( $objBaseKey->key ) continue;
                             $objBaseKey->loadKey($x509cert, false, true);
                         }
                     }

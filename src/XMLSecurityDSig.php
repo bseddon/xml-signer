@@ -8,6 +8,9 @@ use \DOMNode;
 use \DOMXPath;
 use \Exception;
 use \lyquidity\xmldsig\Utils\XPath as UtilsXPath;
+use lyquidity\xmldsig\xml\AttributeNames;
+use lyquidity\xmldsig\xml\ElementNames;
+use lyquidity\xmldsig\xml\XPathFilterName;
 
 /**
  * xmlseclibs.php
@@ -100,11 +103,15 @@ class XMLSecurityDSig
     const C14N_COMMENTS = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments';
     const EXC_C14N = 'http://www.w3.org/2001/10/xml-exc-c14n#';
     const EXC_C14N_COMMENTS = 'http://www.w3.org/2001/10/xml-exc-c14n#WithComments';
+    const C14N11 = 'http://www.w3.org/2006/12/xml-c14n11';
+    const C14N11_COMMENTS = 'http://www.w3.org/2006/12/xml-c14n11#WithComments';
     const ENV_SIG = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
     const XPATH_FILTER2 = 'http://www.w3.org/2002/06/xmldsig-filter2';
     const CXPATH = 'http://www.w3.org/TR/1999/REC-xpath-19991116';
     const BASE64 = 'http://www.w3.org/2000/09/xmldsig#base64';
     const XSLT = 'http://www.w3.org/TR/1999/REC-xslt-19991116';
+
+    const xmlNamespace = "http://www.w3.org/2000/xmlns/";
 
     const template = '<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
   <ds:SignedInfo>
@@ -134,7 +141,7 @@ class XMLSecurityDSig
     private $xPathCtx = null;
 
     /** @var string|null */
-    private $canonicalMethod = null;
+    protected $canonicalMethod = null;
 
     /** @var string */
     private $prefix = '';
@@ -148,11 +155,13 @@ class XMLSecurityDSig
      */
     private $validatedNodes = null;
 
+    protected $signatureId = null;
+
     /**
      * @param string $prefix
      * @param string $id (optional) If supplied it will become the Id attribute of the <Signature>
      */
-    public function __construct( $prefix='ds', $id = null )
+    public function __construct( $prefix = 'ds', $id = null )
     {
         $template = self::BASE_TEMPLATE;
 
@@ -172,6 +181,7 @@ class XMLSecurityDSig
 
         // Add an Id if the param is valid
         if ( ! $id ) return;
+        $this->signatureId = $id;
         $this->sigNode->setAttribute( 'Id', $id );
     }
 
@@ -185,10 +195,9 @@ class XMLSecurityDSig
 
     /**
      * Returns the XPathObj or null if xPathCtx is set and sigNode is empty.
-     *
-     * @return DOMXPath|null
+     * @return DOMXPath
      */
-    private function getXPathObj()
+    public function getXPathObj()
     {
         if ( empty( $this->xPathCtx ) && ! empty( $this->sigNode ) )
         {
@@ -264,19 +273,19 @@ class XMLSecurityDSig
 
     /**
      * @param string $name
-     * @param null|string $value
-     * @return DOMElement
+     * @param string $value
+     * @return \DOMElement
      */
-    public function createNewSignNode( $name, $value = null )
+    public function createNewSignNode( $name, $value = null, $namespace = self::XMLDSIGNS )
     {
         $doc = $this->sigNode->ownerDocument;
         if ( is_null( $value ) )
         {
-            $node = $doc->createElementNS( self::XMLDSIGNS, $this->prefix.$name );
+            $node = $doc->createElementNS( $namespace, $this->prefix . $name );
         }
         else
         {
-            $node = $doc->createElementNS( self::XMLDSIGNS, $this->prefix.$name, $value );
+            $node = $doc->createElementNS( $namespace, $this->prefix . $name, $value );
         }
         return $node;
     }
@@ -314,7 +323,7 @@ class XMLSecurityDSig
                     $canonNode = $this->createNewSignNode('CanonicalizationMethod');
                     $sinfo->insertBefore( $canonNode, $sinfo->firstChild );
                 }
-                $canonNode->setAttribute('Algorithm', $this->canonicalMethod);
+                $canonNode->setAttribute( AttributeNames::Algorithm, $this->canonicalMethod);
             }
         }
     }
@@ -326,17 +335,31 @@ class XMLSecurityDSig
      * @param null|array $prefixList
      * @return string
      */
-    private function canonicalizeData( $node, $canonicalmethod, $arXPath=null, $prefixList=null )
+    protected function canonicalizeData( $node, $canonicalmethod = null, $arXPath=null, $prefixList=null )
     {
+        $canonicalmethod = $canonicalmethod ?? $this->canonicalMethod;
+
         $exclusive = false;
         $withComments = false;
-        switch ($canonicalmethod) {
+        $version11 = false;
+
+        switch ($canonicalmethod) 
+        {
             case self::C14N:
                 $exclusive = false;
                 $withComments = false;
                 break;
             case self::C14N_COMMENTS:
                 $withComments = true;
+                break;
+            case self::C14N11:
+                $exclusive = false;
+                $withComments = false;
+                $version11 = true;
+                break;
+            case self::C14N11_COMMENTS:
+                $withComments = true;
+                $version11 = true;
                 break;
             case self::EXC_C14N:
                 $exclusive = true;
@@ -365,10 +388,13 @@ class XMLSecurityDSig
             }
         }
 
-        return $node->C14N( $exclusive, $withComments, $arXPath, $prefixList );
+        return $version11
+            ? $node->C14N( $exclusive, $withComments, $arXPath, $prefixList )
+            : $node->C14N( $exclusive, $withComments, $arXPath, $prefixList );
     }
 
     /**
+     * Signed info is the element (and content) that is used to generate the signature hash
      * @return null|string
      */
     public function canonicalizeSignedInfo()
@@ -378,7 +404,7 @@ class XMLSecurityDSig
         if ( $doc )
         {
             $xpath = $this->getXPathObj();
-            $query = "./". self::searchpfx . ":SignedInfo";
+            $query = "./". self::searchpfx . ":" . ElementNames::SignedInfo;
             $nodeset = $xpath->query( $query, $this->sigNode );
             if ( $nodeset->length > 1 )
             {
@@ -387,13 +413,13 @@ class XMLSecurityDSig
 
             if ( $signInfoNode = $nodeset->item(0) )
             {
-                $query = "./". self::searchpfx . ":CanonicalizationMethod";
+                $query = "./". self::searchpfx . ":" . ElementNames::CanonicalizationMethod;
                 $nodeset = $xpath->query( $query, $signInfoNode );
                 $prefixList = null;
                 if ( $canonNode = $nodeset->item(0) ) 
                 {
                     /** @var \DOMElement $canonNode */
-                    $canonicalmethod = $canonNode->getAttribute('Algorithm');
+                    $canonicalmethod = $canonNode->getAttribute( AttributeNames::Algorithm );
                     foreach ( $canonNode->childNodes as $node )
                     {
                         if ( $node->localName == 'InclusiveNamespaces' )
@@ -418,6 +444,36 @@ class XMLSecurityDSig
     }
 
     /**
+     * Returns a digest short code for an algorithm url
+     *
+     * @param string $digestAlgorithm
+     * @return string
+     */
+    public static function getDigestName( $digestAlgorithm )
+    {
+        switch ($digestAlgorithm)
+        {
+            case self::SHA1:
+                return 'sha1';
+                break;
+            case self::SHA256:
+                return 'sha256';
+                break;
+            case self::SHA384:
+                return 'sha384';
+                break;
+            case self::SHA512:
+                return 'sha512';
+                break;
+            case self::RIPEMD160:
+                return 'ripemd160';
+                break;
+            default:
+                throw new \Exception("Cannot validate digest: Unsupported Algorithm <$digestAlgorithm>");
+        }
+    }
+
+    /**
      * @param string $digestAlgorithm
      * @param string $data
      * @param bool $encode
@@ -426,28 +482,7 @@ class XMLSecurityDSig
      */
     public function calculateDigest($digestAlgorithm, $data, $encode = true)
     {
-        switch ($digestAlgorithm)
-        {
-            case self::SHA1:
-                $alg = 'sha1';
-                break;
-            case self::SHA256:
-                $alg = 'sha256';
-                break;
-            case self::SHA384:
-                $alg = 'sha384';
-                break;
-            case self::SHA512:
-                $alg = 'sha512';
-                break;
-            case self::RIPEMD160:
-                $alg = 'ripemd160';
-                break;
-            default:
-                throw new \Exception("Cannot validate digest: Unsupported Algorithm <$digestAlgorithm>");
-        }
-
-        $digest = hash( $alg, $data, true );
+        $digest = hash( self::getDigestName( $digestAlgorithm ), $data, true );
         if ( $encode ) 
         {
             $digest = base64_encode( $digest );
@@ -562,7 +597,7 @@ class XMLSecurityDSig
                         if ($node->localName == 'XPath') 
                         {
                             $arXPath['query'] = '(.//. | .//@* | .//namespace::*)[' . $node->nodeValue . ']';
-                            $arXPath['namespaces'] = array();
+                            // $arXPath['namespaces'] = array( $node->prefix => $node->namespaceURI );
                             $nslist = $xpath->query('./namespace::*', $node);
                             foreach ($nslist AS $nsnode)
                             {
@@ -610,6 +645,18 @@ class XMLSecurityDSig
     }
 
     /**
+     * Create a url that has the path part url encoded
+     * @param string[] $parsedUrl An array produced by parse_url()
+     * @return string
+     */
+    public static function encodedUrl( $parsedUrl )
+    {
+        // This line is necessary because filter_var will not accept spaces but will only accept the path being encoded AFTER the first slash.
+        $uri = ( isset( $parsedUrl['scheme'] ) ? $parsedUrl['scheme'] . '://' : '' ) . ( isset( $parsedUrl['host'] ) ? $parsedUrl['host'] : '' ) . "/" . str_replace( '+', '%20', urlencode( ltrim( urldecode( $parsedUrl['path'] ), '/' ) ) );
+        return $uri;
+    }
+
+    /**
      * Each reference is a collection of <Transforms> and has an optional @URI and @Type
      * The idea is start using the document node-set (or $dataObject if one is passed)
      * then process the URI if provided then the <Transforms>
@@ -617,20 +664,41 @@ class XMLSecurityDSig
      * @param \DOMDocument $dataObject Optionally a data object (the XML being validated) can be passed in.  Might be a separate file.
      * @return bool
      */
-    public function processRefNode( $refNode, $dataObject = null )
+    public function processRefNode( $refNode )
     {
         /*
          * Depending on the URI, we may not want to include comments in the result
          * See: http://www.w3.org/TR/xmldsig-core/#sec-ReferenceProcessingModel
          */
         $includeCommentNodes = true;
+        $dataObject = null;
 
-        // If there is a URI it will define the set of nodes to include.  If the URI exists but is empty, comments will be excluded
-        if ( $refNode->hasAttribute("URI") ) 
+        // If there is a URI it will define the set of nodes to include.  
+        // If the URI exists but is empty, the whole document will be 
+        // included but comments will be excluded
+        if ( $refNode->hasAttribute("URI") && $refNode->getAttribute("URI") ) 
         {
             $uri = $refNode->getAttribute("URI");
             $arUrl = parse_url( $uri );
-            if ( empty( $arUrl ['path'] ) ) 
+            if ( isset( $arUrl ['path'] ) )
+            {
+                $parts = explode( '#', $uri );
+                $dataFile = filter_var( self::encodedUrl( $arUrl ), FILTER_VALIDATE_URL )
+                    ? reset( $parts )
+                        // Create a uri to the file. For some reason PHP reports 'file:/...' not 
+                        // 'file://...' for the document URI which is invalid so needs fixing
+                    : self::resolve_path( preg_replace( '!file:/([a-z]:)!i', "file://$1", $refNode->baseURI ), urldecode( reset( $parts ) ) );
+
+                $remoteDoc = new \DOMDocument();
+                $remoteDoc->load( $dataFile );
+                $dataObject = $remoteDoc->documentElement;
+                if ( ! $dataObject )
+                    throw new \Exception("The resource ");
+
+                unset( $parts );
+                unset( $remoteDoc );
+            }
+            else
             {
                 /* 
                  * This reference identifies a node with the given id by using a URI of the
@@ -684,7 +752,6 @@ class XMLSecurityDSig
             }
             else
             {
-                // $xml = $dataObject->C14N( false, $includeCommentNodes );
                 $xPath = new DOMXPath( $dataObject->ownerDocument );
                 $nodeList = iterator_to_array( $xPath->query( './/. | .//@*', $dataObject ) );
                 $namespaceNodes = $xPath->query("//namespace::*");
@@ -780,10 +847,9 @@ class XMLSecurityDSig
 
     /**
      * @return bool
-     * @param \DOMNode $xmlNode This will be supplied if the signature is in a separate file
      * @throws \Exception
      */
-    public function validateReference( $xmlNode = null )
+    public function validateReference()
     {
         $docElem = $this->sigNode->ownerDocument->documentElement;
         if ( ! $docElem->isSameNode( $this->sigNode ) )
@@ -807,7 +873,7 @@ class XMLSecurityDSig
 
         foreach ( $nodeset AS $refNode ) 
         {
-            if ( ! $this->processRefNode( $refNode, $xmlNode ) )
+            if ( ! $this->processRefNode( $refNode ) )
             {
                 /* Clear the list of validated nodes. */
                 $this->validatedNodes = null;
@@ -828,9 +894,11 @@ class XMLSecurityDSig
     {
         $prefix = null;
         $prefix_ns = null;
-        $id_name = 'Id';
+        $id_name = 'Id'; // This is the name of the attribute (id) of the 
         $overwrite_id  = true;
         $force_uri = false;
+        $type = null; // Expected by XAdES to identify the <Reference> pointing to the XAdES <SignedProperties> 
+        $id = null; // An optional id to add to the reference
 
         if ( is_array( $options ) )
         {
@@ -839,6 +907,8 @@ class XMLSecurityDSig
             $id_name = empty($options['id_name']) ? 'Id' : $options['id_name'];
             $overwrite_id = !isset($options['overwrite']) ? true : (bool) $options['overwrite'];
             $force_uri = !isset($options['force_uri']) ? false : (bool) $options['force_uri'];
+            $type = !isset($options['type']) ? null : $options['type'];
+            $id = !isset($options['id']) ? null : $options['id'];
         }
 
         $attname = $id_name;
@@ -850,7 +920,16 @@ class XMLSecurityDSig
         $refNode = $this->createNewSignNode('Reference');
         $sinfoNode->appendChild( $refNode );
 
-        if (! $node instanceof DOMDocument)
+        if ( $force_uri )
+        {
+            $refNode->setAttribute( 
+                AttributeNames::URI,
+                // If the caller has provided a URI then use it
+                is_string( $options['force_uri'] ) 
+                    ? $options['force_uri'] 
+                    : '' );
+        }
+        else if ( ! $node instanceof DOMDocument )
         {
             $uri = null;
             if ( ! $overwrite_id )
@@ -863,58 +942,106 @@ class XMLSecurityDSig
                 $uri = self::generateGUID();
                 $node->setAttributeNS( $prefix_ns, $attname, $uri );
             }
-            $refNode->setAttribute( "URI", '#'.$uri );
-        }
-        elseif ( $force_uri )
-        {
-            $refNode->setAttribute( "URI", '' );
+            $refNode->setAttribute( AttributeNames::URI, '#'.$uri );
         }
 
-        $transNodes = $this->createNewSignNode('Transforms');
+        if ( $type )
+            $refNode->setAttribute( AttributeNames::Type, $type );
+
+        if ( $id )
+            $refNode->setAttribute( AttributeNames::Id, $id );
+
+        $transNodes = $this->createNewSignNode( ElementNames::Transforms );
         $refNode->appendChild( $transNodes );
 
         if ( is_array( $arTransforms ) )
         {
             foreach ($arTransforms AS $transform)
             {
-                $transNode = $this->createNewSignNode('Transform');
+                $transNode = $this->createNewSignNode( ElementNames::Transform );
                 $transNodes->appendChild( $transNode );
-                if ( is_array( $transform ) &&
-                    ( ! empty( $transform[self::CXPATH] ) ) &&
-                    ( ! empty( $transform[self::CXPATH]['query'] ) ) )
+                if ( is_array( $transform ) )
+                {
+                    if ( $transform[ self::CXPATH ] ?? false )
                     {
-                        $transNode->setAttribute('Algorithm', self::CXPATH);
-                        $XPathNode = $this->createNewSignNode('XPath', $transform[self::CXPATH]['query']);
-                        $transNode->appendChild($XPathNode);
-                        if ( ! empty( $transform[self::CXPATH]['namespaces'] ) )
+                        // This function has been changed because there can be multiple <XPath> instances
+                        $transNode->setAttribute( AttributeNames::Algorithm, self::CXPATH );
+
+                        if ( $transform[ self::CXPATH ]['query'] ?? false )
                         {
-                            foreach ($transform[self::CXPATH]['namespaces'] AS $prefix => $namespace)
+                            // Backwards compatibility
+                            $transform[ self::CXPATH ] = array( array( $transform[ self::CXPATH ] ) );
+                        }
+
+                        foreach( $transform[ self::CXPATH ] as $xpaths )
+                        {
+                            foreach( $xpaths as $parts )
                             {
-                                $XPathNode->setAttributeNS( "http://www.w3.org/2000/xmlns/", "xmlns:$prefix", $namespace );
+                                if ( $parts['query'] ?? false )
+                                {
+                                    $XPathNode = $this->createNewSignNode( ElementNames::XPath, $parts['query'] );
+                                    $transNode->appendChild( $XPathNode );
+
+                                    foreach( $parts['namespaces'] ?? array() as $prefix => $namespace )
+                                    {
+                                        $XPathNode->setAttribute( "xmlns:$prefix", $namespace );
+                                    }
+                                }
                             }
                         }
+                    }
+
+                    if ( $transform[ self::XPATH_FILTER2 ] ?? false )
+                    {
+                        // This function has been changed because there can be multiple <XPath> instances
+                        $transNode->setAttribute( AttributeNames::Algorithm, self::XPATH_FILTER2 );
+
+                        if ( $transform[ self::XPATH_FILTER2 ]['query'] ?? false )
+                        {
+                            // Backwards compatibility
+                            $transform[ self::XPATH_FILTER2 ] = array( array( $transform[ self::XPATH_FILTER2 ] ) );
+                        }
+
+                        foreach( $transform[ self::XPATH_FILTER2 ] as $xpaths )
+                        {
+                            foreach( $xpaths as $parts )
+                            {
+                                if ( $parts['query'] ?? false )
+                                {
+                                    $XPathNode = $this->createNewSignNode( ElementNames::XPath, $parts['query'], self::XPATH_FILTER2 );
+                                    $transNode->appendChild( $XPathNode );
+                                    $XPathNode->setAttribute( AttributeNames::Filter, ( $parts['filter'] ?? XPathFilterName::intersect ) );
+
+                                    foreach( $parts['namespaces'] ?? array() as $prefix => $namespace )
+                                    {
+                                        $XPathNode->setAttribute( "xmlns:$prefix", $namespace );
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                    $transNode->setAttribute('Algorithm', $transform);
+                    $transNode->setAttribute( AttributeNames::Algorithm, $transform );
                 }
             }
         }
         elseif ( ! empty( $this->canonicalMethod ) )
         {
-            $transNode = $this->createNewSignNode('Transform');
+            $transNode = $this->createNewSignNode( ElementNames::Transform );
             $transNodes->appendChild( $transNode );
-            $transNode->setAttribute( 'Algorithm', $this->canonicalMethod );
+            $transNode->setAttribute( AttributeNames::Algorithm, $this->canonicalMethod );
         }
 
         $canonicalData = $this->processTransforms( $refNode, $node, ! $force_uri );
         $digValue = $this->calculateDigest( $algorithm, $canonicalData );
 
-        $digestMethod = $this->createNewSignNode('DigestMethod');
+        $digestMethod = $this->createNewSignNode( ElementNames::DigestMethod );
         $refNode->appendChild( $digestMethod );
-        $digestMethod->setAttribute( 'Algorithm', $algorithm );
+        $digestMethod->setAttribute( AttributeNames::Algorithm, $algorithm );
 
-        $digestValue = $this->createNewSignNode( 'DigestValue', $digValue );
+        $digestValue = $this->createNewSignNode( ElementNames::DigestValue, $digValue );
         $refNode->appendChild( $digestValue );
     }
 
@@ -980,6 +1107,7 @@ class XMLSecurityDSig
 
         if ($data instanceof DOMElement)
         {
+            $this->sigNode->ownerDocument->createDocumentFragment();
             $newData = $this->sigNode->ownerDocument->importNode( $data, true );
         }
         else
@@ -1116,9 +1244,9 @@ class XMLSecurityDSig
      * @param string $data
      * @return mixed|string
      */
-    public function signData($securityKey, $data)
+    public function signData( $securityKey, $data )
     {
-        return $securityKey->signData($data);
+        return $securityKey->signData( $data );
     }
 
     /**
@@ -1127,7 +1255,7 @@ class XMLSecurityDSig
      */
     public function sign( $securityKey, $appendToNode = null )
     {
-        // If we have a parent node append it now so C14N properly works
+        // If we have a parent node append it now so C14N works properly
         if ( $appendToNode != null ) 
         {
             $this->resetXPathObj();
@@ -1148,9 +1276,10 @@ class XMLSecurityDSig
                 $nodeset = $xpath->query( $query, $sInfo );
                 /** @var \DOMElement $sMethod */
                 $sMethod = $nodeset->item(0);
-                $sMethod->setAttribute( 'Algorithm', $securityKey->type );
+                $sMethod->setAttribute( AttributeNames::Algorithm, $securityKey->type );
 
                 // Compute the signature value
+                /** @var \DOMElement $sInfo */
                 $data = $this->canonicalizeData($sInfo, $this->canonicalMethod);
                 $sigValue = base64_encode( $this->signData( $securityKey, $data ) );
 
@@ -1196,8 +1325,7 @@ class XMLSecurityDSig
      */
     public function insertSignature( $node, $beforeNode = null )
     {
-
-        $document = $node->ownerDocument;
+        $document = $node instanceof \DOMDocument ? $node : $node->ownerDocument;
         $signatureElement = $document->importNode($this->sigNode, true);
 
         if ($beforeNode == null)
@@ -1516,128 +1644,145 @@ class XMLSecurityDSig
         return $this->validatedNodes;
     }
 
-    // /**
-    //  * PHP canonicalization does not always result in the same output as other C14N
-    //  * implementations such as xmllint, Python lxml or Microsoft Crypto libraries.
-    //  * This preprocesses the DOM to make sure the output is consistent with other
-    //  * implementations.  See https://bugs.php.net/bug.php?id=81188
-    //  *
-    //  * The difference between the PHP implementation of C14N and others is that PHP
-    //  * does not order namespaces correctly (or, at least, not in the same way as 
-    //  * the other C14N implementations to which I have access). 
-    //  *
-    //  * See https://www.w3.org/TR/2001/REC-xml-c14n-20010315 section 4.8
-    //  *
-    //  * The fragment below, which is a node that might appear in a <Transform> element 
-    //  * (cut down for brevity) produces one output in PHP and another when using other
-    //  * software such as xmllint.
-    //  *
-    //  * Input Xml:
-    //  *
-    //  * <XPath xmlns:dsig="xxx" Filter="subtract" xmlns:a="xxx" xmlns="xxx">some xpath query here</XPath>
-    //  *
-    //  * PHP output:
-    //  *
-    //  * <XPath xmlns:dsig="xxx" xmlns:a="xxx" xmlns="xxx" Filter="subtract" >some xpath query here</XPath>
-    //  *
-    //  * xmllint and other's output:
-    //  *
-    //  * <XPath xmlns="xxx" xmlns:a="xxx" xmlns:dsig="xxx" Filter="subtract">some xpath query here</XPath>
-    //  *
-    //  * You can see the difference is that PHP does put namespaces before attributes 
-    //  * but leaves the namespaces in their document order.  The output by other tools
-    //  * sorts the namespaces by their prefix.
-    //  *
-    //  * @param \DOMElement|\DOMDocument $element
-    //  * @return void
-    //  */
-    // static function preCanonicalization( $element )
-    // {
-    //     if ( $element instanceof \DOMDocument )
-    //     {
-    //         $doc = $element;
-    //         $element = $doc->documentElement;
-    //     }
-    //     else
-    //         $doc = $element->ownerDocument;
-    // 
-    //     $namespaceNodes = array();
-    //     $xpath = new \DOMXPath( $doc );
-    //     // This query will pull all namespace attributes (DOMNameSpaceNode instances)
-    //     // Most will be the default xml namespace or a copy of the namespace of the 
-    //     // parent node so can be ignored.
-    //     foreach( $xpath->query( './/namespace::*', $element ) as $node )
-    //     {
-    //         /** @var \DOMNameSpaceNode $node */
-    //         // Ignore the XML namespace
-    //         if ( $node->nodeValue == "http://www.w3.org/XML/1998/namespace" ) continue;
-    // 
-    //         // The parent node is the element to which the namespace attribute is assigned
-    //         /** @var \DOMElement $elementNode */
-    //         $elementNode = $node->parentNode;
-    //         // If the element has a parent node (is not the root node) make sure the 
-    //         // namespace is not the encapsulating namespace which can be ignored as 
-    //         // this not a namespace listed in the output text document.
-    //         if ( ! $node->prefix && $elementNode->parentNode && $elementNode->parentNode->namespaceURI == $elementNode->namespaceURI ) continue;
-    // 
-    //         // The id is not used except to keep the sets of recorded namespace details separate
-    //         $id = spl_object_hash( $elementNode );
-    //         if ( ! isset( $namespaceNodes[ $id ] ) )
-    //         {
-    //             $namespaceNodes[ $id ] = array('node' => $elementNode, 'ns' => array() );
-    //         }
-    // 
-    //         // Remove it so it can be added in the correct order in a subsequent step
-    //         if ( $elementNode->removeAttributeNS( $node->namespaceURI, $node->prefix ) === false )
-    //             continue;
-    // 
-    //         // Record the details indexed by the namespace parent element
-    //         $namespaceNodes[ $id ]['ns'][ $node->localName ] = $node->nodeValue;
-    //     }
-    // 
-    //     // Now for each of the affected elements remove regular attributes 
-    //     // then add namespace and then the regular attributes
-    //     foreach( $namespaceNodes as $namespaceNode )
-    //     {
-    //         // Sort the namespace in order of their prefix with any default namespace first.
-    //         // This is the feature that seems to be missing from the PHP C14N process.
-    //         uksort( $namespaceNode['ns'], function( $a, $b ) 
-    //         {
-    //             // xmlns is *always* to be the first
-    //             if ( $a == 'xmlns' ) return -1;
-    //             if ( $b == 'xmlns' ) return 1;
-    //             return strcmp( $a, $b );
-    //         } );
-    // 
-    //         // Record and remove all the attributes
-    //         /** @var \DOMNode $node */
-    //         $node = $namespaceNode['node'];
-    //         $attributes = array();
-    //         foreach( $node->attributes as $attribute )
-    //         {
-    //             /** @var \DOMAttr $attribute */
-    //             /** @var \DOMElement $node */
-    //             if ( ! $node->removeAttributeNode( $attribute ) )
-    //                 continue;
-    // 
-    //             $attributes[] = $attribute;
-    //         }
-    // 
-    //         // The attributes don't need sorting as the canonicalization process will take care of them.
-    //         // Reapply the attributes starting with the namespaces
-    //         foreach( $namespaceNode['ns'] as $prefix => $namespaceURI )
-    //         {
-    //             if ( $prefix == 'xmlns' )
-    //                 $node->setAttributeNS( '', "$prefix", $namespaceURI);
-    //             else
-    //                 $node->setAttribute( "xmlns:$prefix", $namespaceURI );
-    //         }
-    // 
-    //         // And then the attributes
-    //         foreach( $attributes as $attribute )
-    //         {
-    //             $node->setAttributeNode( $attribute );
-    //         }
-    //     }
-    // }
+	/**
+	 * Used to compute an absolute path for a resource ($target) with respect to a source.
+	 * For example, the presentation linkbase file will be specified as relative to the
+	 * location of the host schema.
+	 * @param string $source The resource for the source
+	 * @param string $target The resource for the target
+	 * @return string
+	 */
+	public static function resolve_path( $source, $target )
+	{
+		// $target = urldecode( $target );
+
+		$source = str_replace( '\\', '/', $source );
+		// Remove any // instances as they confuse the path normalizer but take care to
+		// not to remove ://
+		$offset = 0;
+		while ( true )
+		{
+			$pos = strpos( $source, "//", $offset );
+			if ( $pos === false ) break;
+			$offset = $pos + 2;
+			// Ignore :// (eg https://)
+			if ( $pos > 0 && $source[ $pos-1 ] == ":" ) continue;
+			$source = str_replace( "//", "/", $source );
+			$offset--;
+		}
+
+		// Using the extension to determine if the source is a file or directory reference is problematic unless it is always terminated with a /
+		// This is because the source directory path may include a period such as x:/myroot/some.dir-in-a-path/
+		$source = self::endsWith( $source, '/' ) || pathinfo( $source, PATHINFO_EXTENSION ) === "" //  || is_dir( $source )
+			? $source
+			: pathinfo( $source, PATHINFO_DIRNAME );
+
+		$sourceIsUrl = filter_var( rawurlencode( $source ), FILTER_VALIDATE_URL );
+		$targetIsUrl = filter_var( rawurlencode( $target ), FILTER_VALIDATE_URL );
+
+		// Absolute
+		if ( $target && ( filter_var( $target, FILTER_VALIDATE_URL ) || ( strtoupper( substr( PHP_OS, 0, 3 ) ) === 'WIN' && strlen( $target ) > 1 && ( $target[1] === ':' || substr( $target, 0, 2 ) === '\\\\' ) ) ) )
+			$path = $target;
+
+		// Relative to root
+		elseif ( $target && ( $target[0] === '/' || $target[0] === '\\' ) )
+		{
+			$root = self::get_schema_root( $source );
+			$path = $root . $target;
+		}
+		// Relative to source
+		else
+		{
+			if ( self::endsWith( $source, ":" ) ) $source .= "/";
+			$path =  $source . ( substr( $source, -1 ) == '/' ? '' : '/' ) . $target;
+		}
+
+		// Process the components
+		// BMS 2018-06-06 By ignoring a leading slash the effect is to create relative paths on linux
+		//				  However, its been done to handle http://xxx sources.  But this is not necessary (see below)
+		$parts = explode( '/', $path );
+		$safe = array();
+		foreach ( $parts as $idx => $part )
+		{
+			// if ( empty( $part ) || ( '.' === $part ) )
+			if ( '.' === $part )
+			{
+				continue;
+			}
+			elseif ( '..' === $part )
+			{
+				array_pop( $safe );
+				continue;
+			}
+			else
+			{
+				$safe[] = $part;
+			}
+		}
+
+		// BMS 2108-06-06 See above
+		return implode( '/', $safe );
+
+		// Return the "clean" path
+		return $sourceIsUrl || $targetIsUrl
+			? str_replace( ':/', '://', implode( '/', $safe ) )
+			: implode( '/', $safe );
+	}
+
+	/**
+	 * Find out if $haystack ends with $needle
+	 * @param string $haystack
+	 * @param string $needle
+	 * @return boolean
+	 */
+	public static function endsWith( $haystack, $needle )
+	{
+		$strlen = strlen( $haystack );
+		$testlen = strlen( $needle );
+		if ( $testlen > $strlen ) return false;
+		return substr_compare( $haystack, $needle, $strlen - $testlen, $testlen ) === 0;
+	}
+
+	/**
+	 * Used by resolve_path to obtain the root element of a uri or file path.
+	 * This is necessary because a schema or linkbase uri may be absolute but without a host.
+	 *
+	 * @param string The file
+	 * @return string The root
+	 */
+	private static function get_schema_root( $file )
+	{
+		if ( filter_var( $file, FILTER_VALIDATE_URL ) === false )
+		{
+			// my else codes goes
+			if ( strtoupper( substr( PHP_OS, 0, 3 ) ) === 'WIN' )
+			{
+				// First case is c:\
+				if ( strlen( $file ) > 1 && substr( $file, 1, 1 ) === ":" )
+					$root = "{$file[0]}:";
+				// Second case is a volume
+				elseif ( strlen( $file ) > 1 && substr( $file, 0, 2 ) === "\\\\" )
+				{
+					$pos = strpos( $file, '\\', 2 );
+
+					if ( $pos === false )
+						$root = $file;
+					else
+						$root = substr( $file, 0, $pos );
+				}
+				// The catch all is that no root is provided
+				else
+					$root = pathinfo( $file, PATHINFO_EXTENSION ) === ""
+						? $file
+						: pathinfo( $file, PATHINFO_DIRNAME );
+			}
+		}
+		else
+		{
+			$components = parse_url( $file );
+			$root = "{$components['scheme']}://{$components['host']}";
+		}
+
+		return $root;
+	}
 }

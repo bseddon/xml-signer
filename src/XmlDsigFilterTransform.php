@@ -518,6 +518,8 @@ class XmlDsigFilterElement
 	 */
 	public function createSet( $document )
 	{
+		if ( ! $document instanceof \DOMDocument ) $document->ownerDocument;
+
 		$xpath = new \DOMXPath( $document );
 		foreach( $this->namespaces as $prefix => $namespace )
 		{
