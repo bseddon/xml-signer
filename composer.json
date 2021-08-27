@@ -1,7 +1,7 @@
 {
   "name": "bseddon/xml-signer",
   "description": "A PHP to add and verify XAdES signature",
-  "license": "BSD-3-Clause",
+  "license": "GPL 3.0",
   "keywords": 
   [
     "xml",
