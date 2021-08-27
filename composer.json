@@ -1,5 +1,5 @@
 {
-  "name": "bseddon/xml-signer",
+  "name": "lyquidity/xml-signer",
   "description": "A PHP to add and verify XAdES signature",
   "license": "GPL-3.0-only",
   "keywords": 
