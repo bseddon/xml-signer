@@ -193,13 +193,31 @@ class XAdES extends XMLSecurityDSig
 				throw new XAdESException("The input resource must be a path to an XML file or an InputResourceInfo instance");
 		}
 
-		// Make sure the certificate argument is the correct type
-		if ( ! $certificateResource instanceof CertificateResourceInfo )
-			throw new XAdESException("The certificate resource must be a CertificateResourceInfo instance");
+		if ( is_string( $certificateResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$certificateResource = new CertificateResourceInfo( $certificateResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the certificate argument is the correct type
+			if ( ! $certificateResource instanceof CertificateResourceInfo )
+				throw new XAdESException("The certificate resource must be a CertificateResourceInfo instance");
+		}
 
-		// Make sure the key argument is the correct type
-		if ( ! $keyResource instanceof KeyResourceInfo )
-			throw new XAdESException("The key resource must be a KeyResourceInfo instance");
+		if ( is_string( $keyResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$keyResource = new KeyResourceInfo( $keyResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the key argument is the correct type
+			if ( ! $keyResource instanceof KeyResourceInfo )
+				throw new XAdESException("The key resource must be a KeyResourceInfo instance");
+		}
 
 		if ( $xmlResource->isFile() )
 		{
