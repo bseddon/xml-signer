@@ -53,9 +53,9 @@ class XAdES_XBRLQuery extends XAdES
 	/**
 	 * Create a signature for a resource
 	 *
-	 * @param InputResourceInfo $xmlResource
-	 * @param CertificateResourceInfo $certificateResource
-	 * @param KeyResourceInfo $keyResource
+	 * @param InputResourceInfo|string $xmlResource
+	 * @param CertificateResourceInfo|string $certificateResource
+	 * @param KeyResourceInfo|string $keyResource
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param string $commitmentTypeIdentifier
