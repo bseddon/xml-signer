@@ -34,6 +34,13 @@ class InputResourceInfo extends BaseInputResourceInfo
 	public $transforms = null;
 
 	/**
+	 * This will be used to set @Id when the static sign function is used
+	 *
+	 * @var string
+	 */
+	public $signatureId = null;
+
+	/**
 	 * Returns true if the transforms contains one that is enveloped
 	 *
 	 * @var boolean
@@ -53,12 +60,14 @@ class InputResourceInfo extends BaseInputResourceInfo
 	 * @param string $saveFilename (optional: default = file name)
 	 * @param Transforms $transforms (optional)
 	 * @param bool $detached (optional: default = true)
+	 * @param string $signatureId (optional)
 	 */
-	public function __construct( $resource, $type = self::file, $saveLocation = null, $saveFilename = null, $transforms = null, $detached = true )
+	public function __construct( $resource, $type = self::file, $saveLocation = null, $saveFilename = null, $transforms = null, $detached = true, $signatureId = null )
 	{
 		parent::__construct( $resource, $type, $saveLocation, $saveFilename );
 		$this->transforms = $transforms;
 		$this->detached = $detached;
+		$this->signatureId = $signatureId;
 	}
 
 	/**

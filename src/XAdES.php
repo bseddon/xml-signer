@@ -128,7 +128,7 @@ class XAdES extends XMLSecurityDSig
 	 */
 	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
 	{
-		$instance = new static();
+		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
 		$instance->signXAdESFile( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 		return $instance;
 	}
@@ -144,7 +144,7 @@ class XAdES extends XMLSecurityDSig
 	 */
 	public static function verifyDocument( $signatureFile, $certificateFile = null )
 	{
-		$instance = new static( 'ds', XAdES::SignatureRootId );
+		$instance = new static( XMLSecurityDSig::defaultPrefix, XAdES::SignatureRootId );
 		$instance->verifyXAdES( $signatureFile, $certificateFile );
 		return $instance;
 	}
@@ -268,7 +268,7 @@ class XAdES extends XMLSecurityDSig
 		}
 		unset( $xpath );
 		
-		$this->setCanonicalMethod( $canonicalizationMethod );
+		$this->setCanonicalMethod( $canonicalizationMethod ? $canonicalizationMethod : self::C14N );
 
 		// Create a reference id to use 
 		$referenceId = 'xmldsig-ref0'; // XMLSecurityDSig::generateGUID('xades-');
@@ -1086,13 +1086,31 @@ class XAdES extends XMLSecurityDSig
 				throw new XAdESException("The input resource must be a path to an XML file or an SignedDocumentResourceInfo instance");
 		}
 
-		// Make sure the certificate argument is the correct type
-		if ( ! $certificateResource instanceof CertificateResourceInfo )
-			throw new XAdESException("The certificate resource must be a CertificateResourceInfo instance");
+		if ( is_string( $certificateResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$certificateResource = new CertificateResourceInfo( $certificateResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the certificate argument is the correct type
+			if ( ! $certificateResource instanceof CertificateResourceInfo )
+				throw new XAdESException("The certificate resource must be a CertificateResourceInfo instance");
+		}
 
-		// Make sure the key argument is the correct type
-		if ( ! $keyResource instanceof KeyResourceInfo )
-			throw new XAdESException("The key resource must be a KeyResourceInfo instance");
+		if ( is_string( $keyResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$keyResource = new KeyResourceInfo( $keyResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the key argument is the correct type
+			if ( ! $keyResource instanceof KeyResourceInfo )
+				throw new XAdESException("The key resource must be a KeyResourceInfo instance");
+		}
 
 		// Load the existing document containing the signature
 		if ( $xmlResource->isFile() )
@@ -1157,7 +1175,7 @@ class XAdES extends XMLSecurityDSig
 		$signature = Generic::fromNode( $signatures[0] );
 
 		// Create a counter signature
-		$xmlDSig = new XMLSecurityDSig( 'ds', $xmlResource->counterSignatureId );
+		$xmlDSig = new XMLSecurityDSig( $this->prefix ?? XMLSecurityDSig::defaultPrefix, $xmlResource->counterSignatureId );
 		$xmlDSig->setCanonicalMethod( $canonicalizationMethod );
 
 		$xmlDSig->addReference(
