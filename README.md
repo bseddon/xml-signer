@@ -97,12 +97,11 @@ The purpose of XAdES is to extend the core XML-DSig specification so that signed
 
 There's no single definition of a jurisdiction.  An obvious jurisdiction might be a country or a govenment department.  However, it might also be a collection of commerical entities that reach a mutual agreement regarding the types of signatures that will be accepted.
 
-An example is the policy created by the [Netherlands Standard Business Reporting (SBR)](https://business.gov.nl/regulation/standard-business-reporting/) which is the department of the Netherlands government that receives and checks returns produced by commerical entities operating in the Netherlands.  This department accepts electronic returns in the form of [XBRL](https://www.xbrl.org) documents.  These documents can be signed by auditors. The information to be included in the signature, the key length to be used by certificates and so on is defined in [this XML policy document](http://nltaxonomie.nl/sbr/signature_policy_schema/v2.0/SBR-signature-policy-v2.0.xml).
+An example policyis the one created by the [Netherlands Standard Business Reporting (SBR)](https://business.gov.nl/regulation/standard-business-reporting/) which is the department of the Netherlands government that receives and checks returns produced by commerical entities operating in the Netherlands.  This department accepts electronic returns in the form of [XBRL](https://www.xbrl.org) documents.  These documents can be signed by auditors. The information to be included in the signature, the key length to be used by certificates and so on is defined in [this XML policy document](http://nltaxonomie.nl/sbr/signature_policy_schema/v2.0/SBR-signature-policy-v2.0.xml).
 
 It is important then, when validating a signature the validation checks not only the digest created by applying the certificate, but also that the components included in the signature XML conform with the relevant policy.  It is better, then, that a jurisdiction specific class is created,one that extends the class **XAdES**.
 
 Included with the project is such a class for the [SBR jurisdiction policy](http://nltaxonomie.nl/sbr/signature_policy_schema/v2.0/SBR-signature-policy-v2.0.xml). It is called **XAdES_SBR**.  It overrides functions on **XAdES** both to add extra, policy relevant, information to the signature, and test that appropriate information is included in the signature when it is validated.
-
 
 ## How to Install
 
