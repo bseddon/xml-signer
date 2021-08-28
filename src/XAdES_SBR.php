@@ -101,7 +101,7 @@ class XAdES_SBR extends XAdES
 	{
 		$sdop = parent::getSignedDataObjectProperties( $referenceId );
 
-		$sdop->commitmentTypeIndication = $this->commitmentTypeIdentifier
+		$sdop->commitmentTypeIndication[] = $this->commitmentTypeIdentifier
 			? new CommitmentTypeId(
 				$this->commitmentTypeIdentifier
 			  )
