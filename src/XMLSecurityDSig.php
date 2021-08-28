@@ -149,6 +149,9 @@ class XMLSecurityDSig
     /** @var string */
     const searchpfx = 'secdsig';
 
+    /** @var string */
+    const defaultPrefix = 'ds';
+
     /**
      * This variable contains an associative array of validated nodes.
      * @var array
@@ -161,7 +164,7 @@ class XMLSecurityDSig
      * @param string $prefix
      * @param string $id (optional) If supplied it will become the Id attribute of the <Signature>
      */
-    public function __construct( $prefix = 'ds', $id = null )
+    public function __construct( $prefix = XMLSecurityDSig::defaultPrefix, $id = null )
     {
         $template = self::BASE_TEMPLATE;
 
