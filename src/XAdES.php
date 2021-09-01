@@ -564,7 +564,10 @@ class XAdES extends XMLSecurityDSig
 		{
 			// Load the XML to be signed
 			$signatureDoc = new \DOMDocument();
-			$signatureDoc->load( $signatureFile );
+			if ( @$signatureDoc->load( $signatureFile ) === false )
+			{
+				throw new XAdESException("Failed to load the XML from '$signatureFile'");
+			}
 
 			XmlCore::resetIds(); // Initialize the ids list.  Without this call no ids will be recorded.
 			$root = Generic::fromNode( $signatureDoc );
@@ -765,10 +768,13 @@ class XAdES extends XMLSecurityDSig
 		}
 		catch( XAdESException $ex )
 		{
-			echo $ex->getMessage();
-			if ( ! $ex->getPrevious() ) return;
-			echo "\n";
-			echo $ex->getPrevious()->getMessage();
+			error_log( $ex->getMessage() );
+			if ( $ex->getPrevious() )
+			{
+				error_log( $ex->getPrevious()->getMessage() );
+			}
+
+			throw $ex;
 		}
 	}
 
