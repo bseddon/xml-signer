@@ -1301,6 +1301,44 @@ class XMLSecurityDSig
         }
     }
 
+    /**
+     * Create the canonical version of the SignedInfo element
+     * @param string $algorithm
+     * @param null|DOMNode $appendToNode
+     */
+    public function getSignedInfoCanonicalized( $algorithm, $appendToNode = null )
+    {
+        // If we have a parent node append it now so C14N works properly
+        if ( $appendToNode != null ) 
+        {
+            $this->resetXPathObj();
+            $this->appendSignature( $appendToNode );
+            $this->sigNode = $appendToNode->lastChild;
+        }
+
+        if ( $xpath = $this->getXPathObj() ) 
+        {
+            // Get the SignedInfo node
+            $query = "./" . self::searchpfx . ":SignedInfo";
+            $nodeset = $xpath->query( $query, $this->sigNode );
+
+            if ( $sInfo = $nodeset->item(0) )
+            {
+                // Get the hash algorithm
+                $query = "./" . self::searchpfx . ":SignatureMethod";
+                $nodeset = $xpath->query( $query, $sInfo );
+                /** @var \DOMElement $sMethod */
+                $sMethod = $nodeset->item(0);
+                $sMethod->setAttribute( AttributeNames::Algorithm, $algorithm );
+
+                // Compute the signature value
+                /** @var \DOMElement $sInfo */
+                return $this->canonicalizeData($sInfo, $this->canonicalMethod);
+            }
+        }
+    }
+
+
     public function appendCert()
     {
 

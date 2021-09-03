@@ -134,6 +134,27 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
+	 * Create a signature for a resource but without the SignatureValue element
+	 * The canonicalized SignedInfo will be returned as a string for signing by
+	 * a third party.
+	 * 
+	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
+	 *
+	 * @param InputResourceInfo|string $xmlResource
+	 * @param CertificateResourceInfo|string $certificateResource
+	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
+	 * @param SignerRole|SignerRoleV2 $signerRole
+	 * @param string $canonicalizationMethod (optional) This will use C14N by default
+	 * @param bool $addTimestamp (optional) A timestamp is not added by default
+	 * @return string
+	 */
+	public static function getCanonicalizedSI( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
+	{
+		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		return $instance->getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
+	}
+
+	/**
 	 * Extends the core XmlDSig verification to also verify &lt;Object>/&lt;QualifyingProperties>/&lt;SignedProperties>
 	 * 
 	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
@@ -347,10 +368,10 @@ class XAdES extends XMLSecurityDSig
 			// Load the signing key
 			$objKey->loadKey( $keyResource->resource, true );
 		}
-		else if ( $certificateResource->isString() | $certificateResource->isDER() )
+		else if ( $keyResource->isString() | $keyResource->isDER() )
 		{
 			// Load the signing key
-			$objKey->loadKey( $certificateResource->resource, false );
+			$objKey->loadKey( $keyResource->resource, false );
 		}
 		else
 		{
@@ -437,6 +458,238 @@ class XAdES extends XMLSecurityDSig
 
 		return true;
 	}
+
+	/**
+	 * Create a signature for a resource
+	 *
+	 * @param InputResourceInfo|string $xmlResource
+	 * @param CertificateResourceInfo|string $certificateResource
+	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
+	 * @param SignerRole|SignerRoleV2 $signerRole
+	 * @param string $canonicalizationMethod (optional) This will use C14N by default
+	 * @param bool $addTimestamp (optional)
+	 * @return bool
+	 */
+	function getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
+	{
+		if ( is_string( $xmlResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$xmlResource = new InputResourceInfo( $xmlResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the argument is the correct type
+			if ( ! $xmlResource instanceof InputResourceInfo )
+				throw new XAdESException("The input resource must be a path to an XML file or an InputResourceInfo instance");
+		}
+
+		if ( is_string( $certificateResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$certificateResource = new CertificateResourceInfo( $certificateResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the certificate argument is the correct type
+			if ( ! $certificateResource instanceof CertificateResourceInfo )
+				throw new XAdESException("The certificate resource must be a CertificateResourceInfo instance");
+		}
+
+		if ( $xmlResource->isFile() )
+		{
+			if ( ! file_exists( $xmlResource->resource ) )
+			{
+				throw new XAdESException( "XML file does not exist" );
+			}
+	
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load( $xmlResource->resource );
+		}
+		else if ( $xmlResource->isXmlDocument() )
+		{
+			$doc = $xmlResource->resource;
+		}
+		else if ( $xmlResource->isString() || $xmlResource->isURL() )
+		{
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load( $xmlResource->resource );
+		}
+		else
+		{
+			throw new XAdESException( "The resource supplied representing the document to be signed is not valid." );
+		}
+
+		if ( ! $xmlResource->detached )
+		if ( $xmlResource->isXmlDocument() || $xmlResource->isString() || $xmlResource->isURL() )
+		{
+			// When the source is a string or url or a DOM document and the signature is not 
+			// detatched then there must be a location and file name defined
+			if ( ! $xmlResource->saveLocation || ! $xmlResource->saveFilename )
+			{
+				throw new XAdESException("If the input XML document is provided as a string, a DOM node or a URL then a save location and a save file name must be provided.");
+			}
+		}
+
+		$this->fileBeingSigned = $xmlResource;
+
+		$xpath = new \DOMXPath( $doc );
+		$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
+		$xpath->registerNamespace( 'xa', $this->currentNamespace );
+		$hasSignature = $xpath->query( '//ds:Signature' )->count() > 0;
+		if ( ! $xmlResource->detached && $hasSignature )
+		{
+			throw new XAdESException("The input document already contains a signature.  If you want additional indpendent signatures create a detatched signature instead.");
+		}
+		unset( $xpath );
+		
+		$this->setCanonicalMethod( $canonicalizationMethod ? $canonicalizationMethod : self::C14N );
+
+		// Create a reference id to use 
+		$referenceId = 'xmldsig-ref0'; // XMLSecurityDSig::generateGUID('xades-');
+
+		// Create a Qualifying properties hierarchy
+		$signaturePropertiesId = null;
+		$qualifyingProperties = $this->createQualifyingProperties( 
+			$this->signatureId, 
+			$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource, 
+			$signatureProductionPlace, 
+			$signerRole, 
+			$signaturePropertiesId,
+			$referenceId
+		);
+
+		// If the signature is to be attached, add a prefix so when the signature 
+		// is attached the importNode function does not add a 'default' prefix.
+		if ( ! $xmlResource->detached )
+			$qualifyingProperties->traverse( function( XmlCore $node )
+			{
+				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace ) 
+					return;
+				$node->prefix = 'xa';
+			} );
+
+		// Add the Xml to the signature
+		$object = $this->addObject( null );
+		$qualifyingProperties->generateXml( $object );
+
+		// Get the specific node to be included in the signature
+        $xpath = $this->getXPathObj();
+        $xpath->registerNamespace( 'xa', $this->currentNamespace );
+        $nodes = $xpath->query("./xa:QualifyingProperties/xa:SignedProperties[\"@Id={$this->signatureId}\"]", $object );
+        if ( ! $nodes->length )
+			throw new XAdESException();
+		unset( $object );
+
+		$this->addReference(
+			$nodes[0],
+			XMLSecurityDSig::SHA256, 
+			array( // Transforms
+				$canonicalizationMethod
+			),
+			array( // Options
+				'overwrite' => false,
+				'type' => self::ReferenceType
+			)
+		);
+
+		// Sign using SHA-256
+		$this->addReference(
+			$doc, // Content
+			XMLSecurityDSig::SHA256, // Algorithm
+			$xmlResource->convertTransforms( ! $xmlResource->detached ), // Transforms
+			array( // Options
+				'force_uri' => $xmlResource->detached
+					? ( $xmlResource->isURL() 
+						? XMLSecurityDSig::encodedUrl( parse_url( $xmlResource->resource ) ) 
+						: basename( $xmlResource->resource )
+					  )
+					: true,
+				'id' => $referenceId,
+			)
+		);
+
+		$canonicalizedSignedInfo = $this->getSignedInfoCanonicalized( XMLSecurityKey::RSA_SHA256 );
+	
+		// Add the associated public key to the signature
+		if ( $certificateResource->isFile() )
+		{
+			if ( ! file_exists( $certificateResource->resource ) )
+			{
+				throw new XAdESException( "Certificate file does not exist" );
+			}
+
+			// Add the associated public key to the signature
+			$certificate = file_get_contents( $certificateResource->resource );
+			$this->add509Cert( $certificate );
+		}
+		else if ( $certificateResource->isString() | $certificateResource->isDER() )
+		{
+			// Add the associated public key to the signature
+			$certificate = $certificateResource->resource;
+			$this->add509Cert( $certificateResource->resource, $certificateResource->isPEM(), $certificateResource->isURL() );
+		}
+		else
+		{
+			throw new XAdESException( "The resource supplied representing the certificate to be recorded in the signature is not valid." );
+		}
+
+		/**
+		 * Timestamp
+		 */
+		if ( $addTimestamp )
+		{
+			// Just using the xpath object to get the signature document
+			$xpath = $this->getXPathObj();
+			$this->addTimestamp( $xpath->document, self::SignatureRootId );
+		}
+
+		$location = $xmlResource->saveLocation
+			? "{$xmlResource->saveLocation}"
+			: (
+				$xmlResource->isFile()
+					? dirname( $xmlResource->resource )
+					: __DIR__
+			  );
+
+		$filename = $xmlResource->saveFilename
+		? "{$xmlResource->saveFilename}"
+		: (
+			$xmlResource->isFile()
+				? basename( $xmlResource->resource )
+				: self::SignatureFilename
+		);
+
+		// Add 'xml' extension if one ios not provided
+		if ( ! pathinfo( $filename, PATHINFO_EXTENSION ) )
+			$filename .= '.xml';
+
+		if ( $xmlResource->detached )
+		{
+	  		$this->sigNode->ownerDocument->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );
+		}
+		else
+		{
+			/** @var \DOMElement $signature */
+			$signature = $this->appendSignature( $doc->documentElement );
+			// DOMElement::importNode screws around with namespaces. In this case it will
+			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
+			// $result = $signature->removeAttributeNS( $this->currentNamespace, 'xa' );
+			$xml = preg_replace('!\s*?xmlns:xa="http://uri.etsi.org/01903/v1.3.2#"!', '', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 1 );
+
+			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );	
+			file_put_contents( $this->getSignatureFilename( $location, $filename ), $xml );
+		}
+
+		return $canonicalizedSignedInfo;
+	}
+
+
+
 
 	/**
 	 * Get the filename to use to save the signature
@@ -557,13 +810,14 @@ class XAdES extends XMLSecurityDSig
 		if ( ! filter_var( $signatureFile, FILTER_VALIDATE_URL ) )
 			if ( ! file_exists( $signatureFile ) )
 			{
-				throw new XAdESException( "Signature file does not exist" );
+				throw new XAdESException( "The signature file '$signatureFile' does not exist" );
 			}
 
 		try
 		{
 			// Load the XML to be signed
 			$signatureDoc = new \DOMDocument();
+			// Use @ to silence warnings output
 			if ( @$signatureDoc->load( $signatureFile ) === false )
 			{
 				throw new XAdESException("Failed to load the XML from '$signatureFile'");
@@ -572,9 +826,13 @@ class XAdES extends XMLSecurityDSig
 			XmlCore::resetIds(); // Initialize the ids list.  Without this call no ids will be recorded.
 			$root = Generic::fromNode( $signatureDoc );
 			$signature = Generic::getSignature( $root, true );
+			if ( ! $signature )
+			{
+				throw new XAdESException("Unable to find &lt;Signature> in the XML document");
+			}
 			if ( ! $signature->object || ! $signature->object->getQualifyingProperties() )
 			{
-				throw new XAdESException("Unable to find the <QualifyingProperties> element in the signature.");
+				throw new XAdESException("Unable to find &lt;QualifyingProperties> in the signature.");
 			}
 
 			// Check there are no known gremlins
