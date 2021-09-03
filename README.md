@@ -32,7 +32,15 @@ To check the generated XML conforms to the specification, they are verified usin
 
 ## Dependencies
 
-XAdES uses [timestamps]((https://datatracker.ietf.org/doc/html/rfc3161)), [Online Certificate Status Protocol (OCSP)](https://datatracker.ietf.org/doc/html/rfc6960) and [certificate revocation lists (CRLs)](https://datatracker.ietf.org/doc/html/rfc5280) to support signature non-repudiation.  So in addition to XMLDSig, this [OCSP requester](https://github.com/bseddon/requester) project is used.  It provides OCSP, timestamp protocol (TSP) and CRL request support. It also provides classes to read strings encoded using abstract syntax notation (ASN.1).  ASN.1 is used to encode OCSP and TSP requests and responses.  It is also used to encode PKI entities such as X509 certificates, keys, stores and so on so ASN.1 is an important standard to support.
+XAdES uses [timestamps]((https://datatracker.ietf.org/doc/html/rfc3161)), 
+[Online Certificate Status Protocol (OCSP)](https://datatracker.ietf.org/doc/html/rfc6960) and 
+[certificate revocation lists (CRLs)](https://datatracker.ietf.org/doc/html/rfc5280) to support signature non-repudiation.  
+So in addition to XMLDSig, this [OCSP requester](https://github.com/bseddon/requester) project is used.  
+It provides OCSP, timestamp protocol (TSP) and CRL request support. It also provides classes to read strings 
+encoded using abstract syntax notation (ASN.1).  ASN.1 is used to encode OCSP and TSP requests and responses.  
+It is also used to encode PKI entities such as X509 certificates, keys, stores and so on so ASN.1 is an important standard to support.
+
+The [OCSP requester](https://github.com/bseddon/requester) relies on the following PHP extensions: php_curl, php_gmp, php_mbstring and php_openssl.
 
 ## Simple examples
 
