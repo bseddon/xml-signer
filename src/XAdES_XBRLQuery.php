@@ -103,7 +103,8 @@ class XAdES_XBRLQuery extends XAdES
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param string $signaturePropertiesId
-	 * @param string $referenceId The id that will be added to the signed info reference
+	 * @param string $referenceId The id that will be added to the signed info reference.  Used as @Target on &lt;QualifyingProperties>
+	 * @param string $signedPropertiesId The @Id to be assined to the &lt;SignedProperties>
 	 * @return QualifyingProperties
 	 */
 	protected function createQualifyingProperties(
@@ -112,7 +113,8 @@ class XAdES_XBRLQuery extends XAdES
 		$signatureProductionPlace = null, 
 		$signerRole = null,
 		$signaturePropertiesId = null,
-		$referenceId = null )
+		$referenceId = null,
+		$signedPropertiesId = self::SignedPropertiesId )
 	{
 		// As an illustration if just calls the ancestor method
 		return parent::createQualifyingProperties(
@@ -121,7 +123,8 @@ class XAdES_XBRLQuery extends XAdES
 			$signatureProductionPlace, 
 			$signerRole,
 			$signaturePropertiesId,
-			$referenceId 
+			$referenceId,
+			$signedPropertiesId
 		);
 	}
 
@@ -149,11 +152,14 @@ class XAdES_XBRLQuery extends XAdES
 	{
 		$sdop = parent::getSignedDataObjectProperties( $referenceId );
 
-		$sdop->commitmentTypeIndication[] = $this->commitmentTypeIdentifier
-			? new CommitmentTypeId(
-				$this->commitmentTypeIdentifier
-			  )
-			: null;
+		if ( $this->commitmentTypeIdentifier )
+		{
+			$sdop->commitmentTypeIndication[] = $this->commitmentTypeIdentifier
+				? new CommitmentTypeId(
+					$this->commitmentTypeIdentifier
+				)
+				: null;
+		}
 
 		return $sdop;
 	}
