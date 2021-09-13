@@ -181,9 +181,9 @@ class XAdES extends XMLSecurityDSig
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param bool $canonicalizeOnly (optional: default = false) True when the canonicalized SI should be returned and the signature not signed
-	 * @return XAdES|string[]|bool If canonicalize only it will return the canonicalized SI or false.  Otherwise the instance will be returned.
+	 * @return XAdES|string[]|bool The instance will be returned.
 	 */
-	public static function counterSign( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizeOnly = true )
+	public static function counterSign( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, &$canonicalizeOnly = true )
 	{
 		$instance = new static();
 		return $instance->addCounterSignature( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $canonicalizeOnly );
@@ -1338,11 +1338,13 @@ class XAdES extends XMLSecurityDSig
 	 * @param KeyResourceInfo $keyResource
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
-	 * @param bool $canonicalizeOnly (optional: default = false) True when the canonicalized SI should be returned and the signature not signed
-	 * @return XAdES | string|bool If canonicalize only it will return the canonicalized SI or false.  Otherwise the instance will be returned.
+	 * @param bool $canonicalizedSignedInfo (reference, optional: default = false) A string when the canonicalized SI should be returned and the signature not signed
+	 * @return XAdES|bool The instance will be returned.
 	 */
-	public function addCounterSignature( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizeOnly = false )
+	public function addCounterSignature( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, &$canonicalizedSignedInfo = false )
 	{
+		$canonicalizeOnly = is_string( $canonicalizedSignedInfo );
+
 		if ( is_string( $xmlResource ) )
 		{
 			// If a simple string is passed in, assume it is a file name
@@ -1645,7 +1647,7 @@ class XAdES extends XMLSecurityDSig
 		$xmlDSig->appendSignature( $counterSignature->node );
 		$doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );
 
-		return $canonicalizeOnly ? $canonicalizedSignedInfo : $this;
+		return $this;
 	}
 
 	/**
