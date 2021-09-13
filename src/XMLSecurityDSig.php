@@ -158,7 +158,20 @@ class XMLSecurityDSig
      */
     private $validatedNodes = null;
 
+    /**
+     * The @Id of the &lt;Signature> associated with this instance
+     * @var string 
+     * */
     protected $signatureId = null;
+
+    /**
+     * Returns a copy of the $signature value
+     * @return string 
+     */
+    public function getSignatureId()
+    {
+        return $this->signatureId;
+    }
 
     /**
      * @param string $prefix
