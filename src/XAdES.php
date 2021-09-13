@@ -1458,13 +1458,13 @@ class XAdES extends XMLSecurityDSig
 
 		// Create a reference id to use 
 		$referenceId = XMLSecurityDSig::generateGUID('counter-signature-');
+		$this->signatureId = $xmlResource->counterSignatureId ?? null;
 
 		if ( $signatureProductionPlace || $signerRole )
 		{
 			// Create a Qualifying properties hierarchy
-			$this->signatureId = $xmlResource->counterSignatureId ?? null;
 			$signedSignatureProperties = null;
-			$signedProperties = 'signed-properties-xxx'; // XMLSecurityDSig::generateGUID('signed-properties-');
+			$signedProperties = XMLSecurityDSig::generateGUID('signed-properties-');
 
 			$qualifyingProperties = $this->createQualifyingProperties(
 				$this->signatureId, // Id of the signature to sign
