@@ -181,12 +181,75 @@ class XAdES extends XMLSecurityDSig
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param bool $canonicalizeOnly (optional: default = false) True when the canonicalized SI should be returned and the signature not signed
-	 * @return XAdES|string[]|bool The instance will be returned.
+	 * @return XAdES|bool The instance will be returned.
 	 */
 	public static function counterSign( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, &$canonicalizeOnly = true )
 	{
 		$instance = new static();
 		return $instance->addCounterSignature( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $canonicalizeOnly );
+	}
+
+	/**
+	 * Add a timestamp to an exising signature
+	 *
+	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
+	 * 
+	 * @param InputResourceInfo $xmlResource
+	 * @return XAdES|bool The instance will be returned.
+	 */
+	public static function timestamp( $xmlResource )
+	{
+		if ( ! $xmlResource )
+		{
+			throw new XAdESException("Information about the location of an existing signaure has not be provided");
+		}
+
+		if ( is_string( $xmlResource ) )
+		{
+			// If a simple string is passed in, assume it is a file name
+			// Any problems with this assumption will appear later
+			$xmlResource = new InputResourceInfo( $xmlResource, ResourceInfo::file );
+		}
+		else
+		{
+			// Make sure the argument is the correct type
+			if ( ! $xmlResource instanceof InputResourceInfo )
+				throw new XAdESException("The input resource must be a path to an XML file or an InputResourceInfo instance");
+		}
+
+		// Load the existing document containing the signature
+		if ( $xmlResource->isFile() )
+		{
+			if ( ! file_exists( $xmlResource->resource ) )
+			{
+				throw new XAdESException( "XML file does not exist" );
+			}
+	
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load( $xmlResource->resource );
+		}
+		else if ( $xmlResource->isXmlDocument() )
+		{
+			$doc = $xmlResource->resource;
+		}
+		else if ( $xmlResource->isString() || $xmlResource->isURL() )
+		{
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load( $xmlResource->resource );
+		}
+		else
+		{
+			throw new XAdESException( "The resource supplied representing the document to be signed is not valid." );
+		}
+
+		$instance = new static();
+		$instance->addTimestamp( $doc, $xmlResource->signatureId, XMLSecurityDSig::generateGUID('') );
+
+		$doc->save( $instance->getSignatureFilename( $xmlResource->saveLocation, $xmlResource->saveFilename ), LIBXML_NOEMPTYTAG );
+
+		return $instance;
 	}
 
 	/**
@@ -1274,6 +1337,9 @@ class XAdES extends XMLSecurityDSig
 
 		$canonicalized = $this->canonicalizeData( $signatureValue, $this->canonicalMethod );
 		$der = TSA::getTimestampDER( $canonicalized );
+
+		if ( ! $signatureId ) $signatureId = 'timestamp';
+		error_log("signature: '$signatureId'");
 
 		$timestamp = new SignatureTimeStamp(
 			null,
