@@ -43,6 +43,55 @@ class XAdES_XBRLQuery extends XAdES
 	const policyDocumentNamespace = 'http://www.nltaxonomie.nl/sbr/signature_policy_schema/v2.0/signature_policy';
 
 	/**
+	 * Create a signature for a resource
+	 * 
+	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
+	 *
+	 * @param InputResourceInfo|string $xmlResource
+	 * @param CertificateResourceInfo|string $certificateResource
+	 * @param KeyResourceInfo|string $keyResource
+	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
+	 * @param SignerRole|SignerRoleV2 $signerRole
+	 * @return XAdES
+	 */
+	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = null )
+	{
+		$commitmentTypeIdentifier = $options['commitmentTypeIdentifier'] ?? null;
+		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
+		$addTimestamp = $options['addTimestamp'] ?? false;
+
+		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		$instance->signXAdESFile( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $commitmentTypeIdentifier, $canonicalizationMethod, $addTimestamp );
+		return $instance;
+	}
+
+	/**
+	 * Create a signature for a resource but without the SignatureValue element
+	 * The canonicalized SignedInfo will be returned as a string for signing by
+	 * a third party.
+	 * 
+	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
+	 *
+	 * @param InputResourceInfo|string $xmlResource
+	 * @param CertificateResourceInfo|string $certificateResource
+	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
+	 * @param SignerRole|SignerRoleV2 $signerRole
+	 * @param string[] $options (optional) A list of other, variable properties such as canonicalizationMethod and addTimestamp
+	 * @return string
+	 */
+	public static function getCanonicalizedSI( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $options = array() )
+	{
+		$commitmentTypeIdentifier = $options['commitmentTypeIdentifier'] ?? null;
+		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
+		$addTimestamp = $options['addTimestamp'] ?? false;
+
+		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		$instance->commitmentTypeIdentifier = $commitmentTypeIdentifier;
+
+		return $instance->getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
+	}
+
+	/**
 	 * The current policy identifier
 	 * @var string
 	 */
@@ -155,9 +204,11 @@ class XAdES_XBRLQuery extends XAdES
 		if ( $this->commitmentTypeIdentifier )
 		{
 			$sdop->commitmentTypeIndication[] = $this->commitmentTypeIdentifier
-				? new CommitmentTypeId(
-					$this->commitmentTypeIdentifier
-				)
+				? new CommitmentTypeIndication(
+					new CommitmentTypeId(
+						$this->commitmentTypeIdentifier
+					  )
+				  )
 				: null;
 		}
 

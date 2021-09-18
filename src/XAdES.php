@@ -67,11 +67,17 @@ use lyquidity\xmldsig\xml\SignerRole;
 use lyquidity\xmldsig\xml\SignerRoleV2;
 use lyquidity\xmldsig\xml\SigningCertificateV2;
 use lyquidity\xmldsig\xml\SigningTime;
+use lyquidity\xmldsig\xml\Transform;
+use lyquidity\xmldsig\xml\TransformXPathFilter2;
 use lyquidity\xmldsig\xml\UnsignedProperties;
 use lyquidity\xmldsig\xml\UnsignedSignatureProperties;
 use lyquidity\xmldsig\xml\X509SerialNumber;
 use lyquidity\xmldsig\xml\XmlCore;
+use lyquidity\xmldsig\xml\XPathFilter2;
+
 use function lyquidity\Asn1\asSequence;
+use function lyquidity\xades\get_ca_bundle;
+use function lyquidity\xades\get_tsa_url;
 
 /**
  */
@@ -122,13 +128,17 @@ class XAdES extends XMLSecurityDSig
 	 * @param KeyResourceInfo|string $keyResource
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
-	 * @param string $canonicalizationMethod (optional) This will use C14N by default
+	 * @param string[] $options (optional) A list of other, variable properties such as canonicalizationMethod and addTimestamp
 	 * @param bool $addTimestamp (optional)
 	 * @return XAdES
 	 */
-	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
+	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
 		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+
+		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
+		$addTimestamp = $options['addTimestamp'] ?? false;
+
 		$instance->signXAdESFile( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 		return $instance;
 	}
@@ -144,13 +154,16 @@ class XAdES extends XMLSecurityDSig
 	 * @param CertificateResourceInfo|string $certificateResource
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
-	 * @param string $canonicalizationMethod (optional) This will use C14N by default
-	 * @param bool $addTimestamp (optional) A timestamp is not added by default
+	 * @param string[] $options (optional) A list of other, variable properties such as canonicalizationMethod and addTimestamp
 	 * @return string
 	 */
-	public static function getCanonicalizedSI( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
+	public static function getCanonicalizedSI( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
 		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+
+		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
+		$addTimestamp = $options['addTimestamp'] ?? false;
+
 		return $instance->getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 	}
 
@@ -193,11 +206,12 @@ class XAdES extends XMLSecurityDSig
 	 * Add a timestamp to an exising signature
 	 *
 	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
-	 * 
+	 *
 	 * @param InputResourceInfo $xmlResource
+	 * @param string $tsaURL (optional) The URL to use to access a TSA
 	 * @return XAdES|bool The instance will be returned.
 	 */
-	public static function timestamp( $xmlResource )
+	public static function timestamp( $xmlResource, $tsaURL = null )
 	{
 		if ( ! $xmlResource )
 		{
@@ -245,7 +259,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		$instance = new static();
-		$instance->addTimestamp( $doc, $xmlResource->signatureId, XMLSecurityDSig::generateGUID('') );
+		$instance->addTimestamp( $doc, $xmlResource->signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL );
 
 		$doc->save( $instance->getSignatureFilename( $xmlResource->saveLocation, $xmlResource->saveFilename ), LIBXML_NOEMPTYTAG );
 
@@ -374,12 +388,22 @@ class XAdES extends XMLSecurityDSig
 		// If the signature is to be attached, add a prefix so when the signature 
 		// is attached the importNode function does not add a 'default' prefix.
 		if ( ! $xmlResource->detached )
+		{
+			// $qualifyingProperties->namespaces['xa'] = $this->currentNamespace;
+			// $qualifyingProperties->namespaces['dsig-xpath'] = self::XPATH_FILTER2;
+
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
-				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace ) 
+				$node->node = null;
+				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
+				{
+					if ( $node instanceof XPathFilter2 )
+						$node->prefix = 'dsig-xpath';
 					return;
+				}
 				$node->prefix = 'xa';
 			} );
+		}
 
 		// Add the Xml to the signature
 		$object = $this->addObject( null );
@@ -516,7 +540,8 @@ class XAdES extends XMLSecurityDSig
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
 			// $result = $signature->removeAttributeNS( $this->currentNamespace, 'xa' );
-			$xml = preg_replace('!\s*?xmlns:xa="http://uri.etsi.org/01903/v1.3.2#"!', '', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 1 );
+			// $xml = preg_replace('!\s*?xmlns:xa="http://uri.etsi.org/01903/v1.3.2#"!', '', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 1 );
+			$xml = preg_replace( sprintf( '!(Signature.*?)\s*?xmlns:xa="%s"|\s*?xmlns:dsig-xpath="%s"!', $this->currentNamespace, self::XPATH_FILTER2 ), '$1', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 2 );
 
 			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );	
 			file_put_contents( $this->getSignatureFilename( $location, $filename ), $xml );
@@ -616,7 +641,7 @@ class XAdES extends XMLSecurityDSig
 		$this->setCanonicalMethod( $canonicalizationMethod ? $canonicalizationMethod : self::C14N );
 
 		// Create a reference id to use 
-		$referenceId = 'xmldsig-ref0'; // XMLSecurityDSig::generateGUID('xades-');
+		$referenceId = XMLSecurityDSig::generateGUID('xades-');
 
 		// Create a Qualifying properties hierarchy
 		$signaturePropertiesId = null;
@@ -634,8 +659,12 @@ class XAdES extends XMLSecurityDSig
 		if ( ! $xmlResource->detached )
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
-				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace ) 
+				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
+				{
+					if ( $node instanceof XPathFilter2 )
+						$node->prefix = 'dsig-xpath';
 					return;
+				}
 				$node->prefix = 'xa';
 			} );
 
@@ -1309,9 +1338,10 @@ class XAdES extends XMLSecurityDSig
      * @param \DOMDocument $doc A DOMDocument instance that includes &lt;ds:SignatureValue>
      * @param string $signatureId The id of <ds:Signature> and isused as the property @Target of &lt;QualifyingProperties>
      * @param string $propertyId An id to use to identify the property.  Currently not used.
+	 * @param string $tsaURL (optional) The URL to use to access a TSA
      * @return void
      */
-    public function addTimestamp( $doc, $signatureId, $propertyId = 'timestamp' )
+    public function addTimestamp( $doc, $signatureId, $propertyId = 'timestamp', $tsaURL = null )
 	{
 		// Things done here may be sometimes repeat those done elsewhere.  This is so the 
 		// function can be called independently of creating a new signature.
@@ -1336,7 +1366,7 @@ class XAdES extends XMLSecurityDSig
 		$signatureValue = $nodes[0];
 
 		$canonicalized = $this->canonicalizeData( $signatureValue, $this->canonicalMethod );
-		$der = TSA::getTimestampDER( $canonicalized );
+		$der = TSA::getTimestampDER( $canonicalized, null, $tsaURL );
 
 		if ( ! $signatureId ) $signatureId = 'timestamp';
 		error_log("signature: '$signatureId'");
@@ -1546,8 +1576,12 @@ class XAdES extends XMLSecurityDSig
 			// is attached the importNode function does not add a 'default' prefix.
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
-				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace ) 
+				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
+				{
+					if ( $node instanceof XPathFilter2 )
+						$node->prefix = 'dsig-xpath';
 					return;
+				}
 				$node->prefix = 'xa';
 			} );
 

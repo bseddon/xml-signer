@@ -1145,9 +1145,10 @@ class XMLSecurityDSig
      * @param string $timestamp xsd:dateTimeStamp (eg. 2021-05-12T12:35:00Z).
      * @param string $signatureId The id of <Signature> and isused as the property @Target
      * @param string $propertyId An id to use to identify the property.  The name is opaque and no meaning can be inferred.
+     * @param string $tsaURL This is to be used by decendents
      * @return void
      */
-    public function addTimestamp( $timestamp, $signatureId, $propertyId = 'timestamp' )
+    public function addTimestamp( $timestamp, $signatureId, $propertyId = 'timestamp', $tsaURL = null )
     {
         $propertiesXml = "<SignatureProperties xmlns=\"". self::XMLDSIGNS . "\">" .
             "<SignatureProperty Id=\"$propertyId\" Target=\"#$signatureId\">" .
