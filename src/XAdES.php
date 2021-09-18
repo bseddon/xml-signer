@@ -388,10 +388,6 @@ class XAdES extends XMLSecurityDSig
 		// If the signature is to be attached, add a prefix so when the signature 
 		// is attached the importNode function does not add a 'default' prefix.
 		if ( ! $xmlResource->detached )
-		{
-			// $qualifyingProperties->namespaces['xa'] = $this->currentNamespace;
-			// $qualifyingProperties->namespaces['dsig-xpath'] = self::XPATH_FILTER2;
-
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
 				$node->node = null;
