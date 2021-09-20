@@ -387,7 +387,7 @@ class XAdES extends XMLSecurityDSig
 
 		// If the signature is to be attached, add a prefix so when the signature 
 		// is attached the importNode function does not add a 'default' prefix.
-		if ( ! $xmlResource->detached )
+		// if ( ! $xmlResource->detached )
 		{
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
@@ -536,9 +536,16 @@ class XAdES extends XMLSecurityDSig
 			$signature = $this->appendSignature( $doc->documentElement );
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
-			// $result = $signature->removeAttributeNS( $this->currentNamespace, 'xa' );
-			// $xml = preg_replace('!\s*?xmlns:xa="http://uri.etsi.org/01903/v1.3.2#"!', '', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 1 );
-			$xml = preg_replace( sprintf( '!(Signature.*?)\s*?xmlns:xa="%s"|\s*?xmlns:dsig-xpath="%s"!', $this->currentNamespace, self::XPATH_FILTER2 ), '$1', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 2 );
+			$namespaces = array( 
+				'xa' => $this->currentNamespace,
+				'dsig-xpath' => self::XPATH_FILTER2 
+			);
+			$clauses = array_map( 
+				function( $prefix ) use( $namespaces ) {
+					return sprintf( '\s*?xmlns:%s="%s"', $prefix, $namespaces[ $prefix ] ); 
+				}, array_keys( $namespaces ) 
+			);
+			$xml = preg_replace( sprintf( '!(Signature.*?)%s!', join( '|', $clauses ) ), '$1', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 2 );
 
 			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );	
 			file_put_contents( $this->getSignatureFilename( $location, $filename ), $xml );
@@ -653,7 +660,7 @@ class XAdES extends XMLSecurityDSig
 
 		// If the signature is to be attached, add a prefix so when the signature 
 		// is attached the importNode function does not add a 'default' prefix.
-		if ( ! $xmlResource->detached )
+		// if ( ! $xmlResource->detached )
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
 				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
@@ -770,8 +777,16 @@ class XAdES extends XMLSecurityDSig
 			$signature = $this->appendSignature( $doc->documentElement );
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
-			// $result = $signature->removeAttributeNS( $this->currentNamespace, 'xa' );
-			$xml = preg_replace('!\s*?xmlns:xa="http://uri.etsi.org/01903/v1.3.2#"!', '', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 1 );
+			$namespaces = array( 
+				'xa' => $this->currentNamespace,
+				'dsig-xpath' => self::XPATH_FILTER2 
+			);
+			$clauses = array_map( 
+				function( $prefix ) use( $namespaces ) {
+					return sprintf( '\s*?xmlns:%s="%s"', $prefix, $namespaces[ $prefix ] ); 
+				}, array_keys( $namespaces ) 
+			);
+			$xml = preg_replace( sprintf( '!(Signature.*?)%s!', join( '|', $clauses ) ), '$1', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 2 );
 
 			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );	
 			file_put_contents( $this->getSignatureFilename( $location, $filename ), $xml );
