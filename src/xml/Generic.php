@@ -42,7 +42,9 @@ class Generic extends XmlCore
 		// Use the map if one exists
 		$localName = $classMap[ $node->localName ] ?? $node->localName;
 
-		$classname = dirname( self::class ) . '\\' . $localName;
+		// This jiggery pokery is necessary for Linux where dirname cannot cope with backslashes which are no problem on Windows
+		$classname = dirname( str_replace('\\', '/', self::class)  ) . '/' . $localName;
+		$classname = str_replace('/', '\\', $classname);
 		$newNode = null;
 
 		if ( class_exists( $classname, true ) )
