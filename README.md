@@ -53,6 +53,16 @@ XAdES::verifyDocument( 'http://www.xbrlquery.com/xades/hashes-signed.xml' );
 Here's an example of signing an Xml document with a robust XAdES signature.  The url is to a real document but to be able to execute this example, it will be necessary to provide your own certificate and corresponding private key.  The output of this function when used with my test certificate and and private key [can be accessed here](http://www.xbrlquery.com/xades/hashes%20for%20nba%20with%20signature.xml).
 
 ```php
+
+use lyquidity\xmldsig\CertificateResourceInfo;
+use lyquidity\xmldsig\InputResourceInfo;
+use lyquidity\xmldsig\KeyResourceInfo;
+use lyquidity\xmldsig\ResourceInfo;
+use lyquidity\xmldsig\XAdES;
+use lyquidity\xmldsig\xml\SignatureProductionPlaceV2;
+use lyquidity\xmldsig\xml\SignerRoleV2;
+use lyquidity\xmldsig\XMLSecurityDSig;
+
 XAdES::signDocument( 
 	new InputResourceInfo(
 		'http://www.xbrlquery.com/xades/hashes for nba.xml', // The source document
