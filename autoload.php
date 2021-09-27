@@ -5,6 +5,7 @@ function xml_signer_autoload( $classname )
 	$prefix = "lyquidity\\xmldsig\\";
 	if ( strpos( $classname, $prefix ) !== 0 ) return false;
 	$filename = str_replace( $prefix, '', $classname );
+	$filename = str_replace('\\', '/', $filename);
 	if ( ! file_exists( __DIR__ . "/src/$filename.php" ) )
 	{
 		$classes = array( 'SigningCertificate' => 'xml/XmlClasses' );
