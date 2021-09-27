@@ -116,7 +116,7 @@ Included with the project is such a class for the [SBR jurisdiction policy](http
 Install with [`composer.phar`](http://getcomposer.org).
 
 ```sh
-php composer.phar require "bsseddon/xml-signer"
+php composer.phar require "lyquidity/xml-signer"
 ```
 
 # References
