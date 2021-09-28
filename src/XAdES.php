@@ -275,7 +275,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param string $canonicalizationMethod (optional) This will use C14N by default
-	 * @param bool $addTimestamp (optional)
+	 * @param bool|string $addTimestamp (optional) It may be a string if an alternative TSA is to be used
 	 * @return bool
 	 */
 	function signXAdESFile( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
@@ -503,7 +503,7 @@ class XAdES extends XMLSecurityDSig
 		{
 			// Just using the xpath object to get the signature document
 			$xpath = $this->getXPathObj();
-			$this->addTimestamp( $xpath->document, self::SignatureRootId );
+			$this->addTimestamp( $xpath->document, self::SignatureRootId, null, is_string( $addTimestamp ) ? $addTimestamp : null ); // Note that $addTimestamp may contain an alternative TSA Url
 		}
 
 		$location = $xmlResource->saveLocation
@@ -562,7 +562,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param string $canonicalizationMethod (optional) This will use C14N by default
-	 * @param bool $addTimestamp (optional)
+	 * @param bool|string $addTimestamp (optional) May be a string if an alternative TSA is being used
 	 * @return bool
 	 */
 	protected function getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
@@ -744,7 +744,7 @@ class XAdES extends XMLSecurityDSig
 		{
 			// Just using the xpath object to get the signature document
 			$xpath = $this->getXPathObj();
-			$this->addTimestamp( $xpath->document, self::SignatureRootId );
+			$this->addTimestamp( $xpath->document, self::SignatureRootId, null, is_string( $addTimestamp ) ? $addTimestamp : null ); // Note that $addTimestamp may contain an alternative TSA Url
 		}
 
 		$location = $xmlResource->saveLocation
@@ -1353,8 +1353,11 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
      * @return void
      */
-    public function addTimestamp( $doc, $signatureId, $propertyId = 'timestamp', $tsaURL = null )
+    public function addTimestamp( $doc, $signatureId, $propertyId = null, $tsaURL = null )
 	{
+		// Make sure there is a useful property id even when null is passed in
+		$propertyId = $propertyId ?? 'timestamp';
+
 		// Things done here may be sometimes repeat those done elsewhere.  This is so the 
 		// function can be called independently of creating a new signature.
 		$xpath = new \DOMXPath( $doc );
