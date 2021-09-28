@@ -82,8 +82,10 @@ XAdES::signDocument(
 	new SignerRoleV2(
 		'CEO'
 	),
-	XMLSecurityDSig::C14N, // The type of canonicalization to use
-	false // Include a timestamp?
+	array(
+		'canonicalizationMethod' => XMLSecurityDSig::C14N,
+		'addTimestamp' => false // Include a timestamp? Can specify an alternative TSA url eg 'http://mytsa.com/' 
+	)
 );
 ```
 
