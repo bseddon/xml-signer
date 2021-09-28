@@ -129,15 +129,22 @@ class XAdES extends XMLSecurityDSig
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
 	 * @param SignerRole|SignerRoleV2 $signerRole
 	 * @param string[] $options (optional) A list of other, variable properties such as canonicalizationMethod and addTimestamp
-	 * @param bool $addTimestamp (optional)
 	 * @return XAdES
 	 */
 	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
 		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
-
-		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
-		$addTimestamp = $options['addTimestamp'] ?? false;
+		if ( is_array( $options ) )
+		{
+			$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
+			$addTimestamp = $options['addTimestamp'] ?? false;
+		}
+		else
+		{
+			// Allow that $options might still be bool or string
+			$canonicalizationMethod = self::C14N;
+			$addTimestamp = $options;
+		}
 
 		$instance->signXAdESFile( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 		return $instance;
