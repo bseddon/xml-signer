@@ -123,6 +123,29 @@ It is important then, when validating a signature the validation checks not only
 
 Included with the project is such a class for the [SBR jurisdiction policy](http://nltaxonomie.nl/sbr/signature_policy_schema/v2.0/SBR-signature-policy-v2.0.xml). It is called **XAdES_SBR**.  It overrides functions on **XAdES** both to add extra, policy relevant, information to the signature, and test that appropriate information is included in the signature when it is validated.
 
+## Resources
+
+In the example above three types of resource are used.  Each is an instance type specific to the type of resource being required for a parameter.  The resources are used to convey appropriate information to the signer and this information can be in different forms.  For example, the resource for the document to be signed might be a file path, a url, a string of XML or a DOMDocument instance.  Equally the resource for a signature or private key might be file path, a PEM formatted string, a base 64 encoded string or a binary representation of the certificate or key.
+
+As well as having resource specific properties, each has a 'type' property that provides a way to describe the nature of the resource.  The complete list of possible 
+
+|Flag|A flag indicating the resource is a... |
+|-|-|
+|file|Path to a local file.  If no explicit type is provided this is the default type|
+|string|String|
+|binary|Binary string|
+|der|DER encoded binary string|
+|xmlDocument|A DOMDocument instance|
+|pem|PEM encoded string|
+|url|URL to the document source|
+|base64|Base64 encoded|
+
+Where appropriate these flags can be or'd together.  Doing this means more information can be provided to the signer.  For example a certificate provided in a string might be in a PEM format, a Base 64 format or as DER bytes.  If a certificate is provided in a string in a PEM format the type value will be:
+
+```php
+ResourceInfo::string | ResourceInfo::pem
+```
+
 ## How to Install
 
 Install with [`composer.phar`](http://getcomposer.org).
