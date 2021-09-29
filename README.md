@@ -26,6 +26,8 @@ There are 140+ different elements defined by XAdES.  Although support exists for
 
 Another limitation is that the only mechanism available to sign a signature is by using X509 certificates in the context of the public key infrastructure (PKI). These are the same type of certificates used by web sites and browers though usually with different key use attributes.
 
+The final limitation is the lack of support for manifests.  These are references to other elements within an XML document within which elements involved in the signature can be placed.  This signer will not use any alternative place and is unable to verify a signature that uses such alternative locations.
+
 ## Conformance
 
 To check the generated XML conforms to the specification, they are verified using the [XAdES Conformance Checker (XAdESCC)](https://signatures-conformance-checker.etsi.org/pub/index.php) created by [Juan Carlos Cruellas](https://ieeexplore.ieee.org/author/37296299300). This tool has been created using Java and is provided via [ETSI](https://www.etsi.org/) which is the ESO responsible for the XAdES specification.  XAdESCC checks all aspects of a signature including the computed digests.  Using this tool helps to ensure a signature produced by one tool can be verified by another tool and vice-versa.  A C# program is also used to confirm generated signatures can be verified by the XML-DSig support included within the *System.Security.Cryptography.Xml* namespace.
@@ -145,6 +147,57 @@ Where appropriate these flags can be or'd together.  Doing this means more infor
 ```php
 ResourceInfo::string | ResourceInfo::pem
 ```
+
+## Counter signatures
+
+In addition to a main signature, it may be necessary to add one or more counter signatures.  For example, the main signature might be on behalf of the cheif financial officer which is then counter signed by the legal counsel and/or an audit partner.  To make it easy to add a counter signature there is a static method:
+
+```php
+XAdES::counterSign( 
+	new SignedDocumentResourceInfo( 
+		'http://www.xbrlquery.com/xades/hashes for nba with signature.xml', 
+		ResourceInfo::url,
+		'source-sig-id', // this identifies the signature being counter signed
+		__DIR__,
+		'hashes-counter-signed.xml',
+		XMLSecurityDSig::generateGUID('counter-signature-') // A unique id for this signature
+	),
+	'... path to a certificate file ...', // or a CertificateResourceInfo instance
+	'... path to the certificate private key file ...', // or a KeyResourceInfo instance
+	new SignatureProductionPlaceV2(
+		'New Malden',
+		'16 Lynton Road', // This is V2 only
+		'Surrey',
+		'KT3 5EE',
+		'UK'
+	),
+	new SignerRoleV2(
+		new ClaimedRoles( new ClaimedRole('Chief legal counsel') )
+	)
+);
+```
+
+Note the use of the **SignedDocumentResourceInfo** class to provide the signer with information about the document to which a counter-signature is being added.  This class exposes an additional property that allows a caller to define an @id for the signature element.  This is required if a timestamp is to be added to the counter-signature.
+
+## Timestamps
+
+A timestamp can be added to a signature while the original signature is being created.  It also possible to add timestamps to an existing document which can be useful if a counter-signature also needs a timestamp.  To make adding a timestamp easy there is a static method:
+
+```php
+XAdES::timestamp( 
+	new InputResourceInfo(
+		'http://www.xbrlquery.com/xades/hashes for nba.xml', // The source document
+		ResourceInfo::url, // The source is a url
+		__DIR__, // The location to save the signed document
+		'hashes for nba with timestamped signature.xml', // The name of the file to save the signed document in
+		null,
+		true,
+		'signature-to-timestamp'
+	),
+	null // An optional url to an alternative timestamp authority (TSA)
+);
+```
+The id parameter to the InputResourceInfo instance is essential as it identifies the signature to which the timestamp should be added.  This may be the main signature but it may also be a counter-signature.  In fact it can also identify any element that is used as a reference within a signature.
 
 ## How to Install
 
