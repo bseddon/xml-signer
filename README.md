@@ -26,6 +26,8 @@ There are 140+ different elements defined by XAdES.  Although support exists for
 
 Another limitation is that the only mechanism available to sign a signature is by using X509 certificates in the context of the public key infrastructure (PKI). These are the same type of certificates used by web sites and browers though usually with different key use attributes.
 
+Attribute certificates are not supported so cannot be used within &lt;SignerRoleV2> instances.
+
 The final limitation is the lack of support for manifests.  These are references to other elements within an XML document within which elements involved in the signature can be placed.  This signer will not use any alternative place and is unable to verify a signature that uses such alternative locations.
 
 ## Conformance
