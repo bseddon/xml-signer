@@ -43,6 +43,7 @@ use lyquidity\OCSP\CertificateLoader;
 use lyquidity\OCSP\Exception\ResponseException\MissingResponseBytesException;
 use lyquidity\OCSP\Ocsp;
 use lyquidity\TSA\TSA;
+use lyquidity\xmldsig\xml\ArchiveTimeStamp;
 use lyquidity\xmldsig\xml\Cert;
 use lyquidity\xmldsig\xml\CertV2;
 use lyquidity\xmldsig\xml\CounterSignature;
@@ -78,6 +79,9 @@ use lyquidity\xmldsig\xml\XPathFilter2;
 use function lyquidity\Asn1\asSequence;
 use function lyquidity\xades\get_ca_bundle;
 use function lyquidity\xades\get_tsa_url;
+
+define( 'ADDTIMESTAMP', 'addTimestamp' );
+define( 'ADDARCHIVETIMESTAMP', 'addArchiveTimestamp' );
 
 /**
  */
@@ -137,7 +141,7 @@ class XAdES extends XMLSecurityDSig
 		if ( is_array( $options ) )
 		{
 			$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
-			$addTimestamp = $options['addTimestamp'] ?? false;
+			$addTimestamp = $options[ ADDTIMESTAMP ] ?? false;
 		}
 		else
 		{
@@ -169,7 +173,7 @@ class XAdES extends XMLSecurityDSig
 		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
 
 		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
-		$addTimestamp = $options['addTimestamp'] ?? false;
+		$addTimestamp = $options[ ADDTIMESTAMP ] ?? false;
 
 		return $instance->getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 	}
@@ -212,17 +216,54 @@ class XAdES extends XMLSecurityDSig
 	/**
 	 * Add a timestamp to an exising signature
 	 *
-	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
-	 *
 	 * @param InputResourceInfo $xmlResource
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
 	 * @return XAdES|bool The instance will be returned.
 	 */
 	public static function timestamp( $xmlResource, $tsaURL = null )
 	{
+		return self::internalTimestamp( $xmlResource, null, $tsaURL );
+	}
+
+	/**
+	 * Add a timestamp to an exising signature
+	 *
+	 * @param InputResourceInfo $xmlResource
+	 * @param string $tsaURL (optional) The URL to use to access a TSA
+	 * @return XAdES|bool The instance will be returned.
+	 */
+	public static function archiveTimestamp( $xmlResource, $tsaURL = null )
+	{
+		return self::internalTimestamp( $xmlResource, ADDARCHIVETIMESTAMP, $tsaURL );
+	}
+
+	/**
+	 * Add a timestamp to an exising signature
+	 *
+	 * This internal function allows the caller to determine which timestamp method
+	 *
+	 * @param InputResourceInfo $xmlResource
+	 * @param string $timestampMethod (optional)
+	 * @param string $tsaURL (optional) The URL to use to access a TSA
+	 * @return XAdES|bool The instance will be returned.
+	 */
+	private static function internalTimestamp( $xmlResource, $timestampMethod = null, $tsaURL = null )
+	{
+		if ( ! $timestampMethod )
+		{
+			$timestampMethod = ADDTIMESTAMP;
+		}
+		else
+		{
+			if ( array_search( $timestampMethod, array( ADDTIMESTAMP, ADDARCHIVETIMESTAMP ) ) === false )
+			{
+				throw new XAdESException("The timestamp method is not valid: $timestampMethod");
+			}
+		}
+
 		if ( ! $xmlResource )
 		{
-			throw new XAdESException("Information about the location of an existing signaure has not be provided");
+			throw new XAdESException("Information about the location of an existing signature has not be provided");
 		}
 
 		if ( is_string( $xmlResource ) )
@@ -234,8 +275,19 @@ class XAdES extends XMLSecurityDSig
 		else
 		{
 			// Make sure the argument is the correct type
-			if ( ! $xmlResource instanceof InputResourceInfo )
-				throw new XAdESException("The input resource must be a path to an XML file or an InputResourceInfo instance");
+			switch( $timestampMethod )
+			{
+				case ADDTIMESTAMP:
+					if ( $xmlResource instanceof InputResourceInfo )
+						break;
+
+				case ADDARCHIVETIMESTAMP:
+					if ( $xmlResource instanceof SignedDocumentResourceInfo )
+						break;
+
+				default:
+					throw new XAdESException("The input resource must be a path to an XML file or an InputResourceInfo instance");
+			}
 		}
 
 		// Load the existing document containing the signature
@@ -266,7 +318,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		$instance = new static();
-		$instance->addTimestamp( $doc, $xmlResource->signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL );
+		$instance->$timestampMethod( $doc, $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL );
 
 		$doc->save( $instance->getSignatureFilename( $xmlResource->saveLocation, $xmlResource->saveFilename ), LIBXML_NOEMPTYTAG );
 
@@ -285,7 +337,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param bool|string $addTimestamp (optional) It may be a string if an alternative TSA is to be used
 	 * @return bool
 	 */
-	function signXAdESFile( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
+	public function signXAdESFile( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
 	{
 		if ( is_string( $xmlResource ) )
 		{
@@ -668,16 +720,16 @@ class XAdES extends XMLSecurityDSig
 		// If the signature is to be attached, add a prefix so when the signature 
 		// is attached the importNode function does not add a 'default' prefix.
 		// if ( ! $xmlResource->detached )
-			$qualifyingProperties->traverse( function( XmlCore $node )
+		$qualifyingProperties->traverse( function( XmlCore $node )
+		{
+			if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
 			{
-				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
-				{
-					if ( $node instanceof XPathFilter2 )
-						$node->prefix = 'dsig-xpath';
-					return;
-				}
-				$node->prefix = 'xa';
-			} );
+				if ( $node instanceof XPathFilter2 )
+					$node->prefix = 'dsig-xpath';
+				return;
+			}
+			$node->prefix = 'xa';
+		} );
 
 		// Add the Xml to the signature
 		$object = $this->addObject( null );
@@ -1372,7 +1424,7 @@ class XAdES extends XMLSecurityDSig
         $nodes = $xpath->query( "//ds:Signature[\"@Id={$this->signatureId}\"]" );
 		if ( ! $nodes || ! $nodes->count() )
 		{
-			throw new XAdESException( "A timestamp cannot be created because there is no existng signaure with @Id '$signatureId'" );
+			throw new XAdESException( "A timestamp cannot be created because there is no existng signature with @Id '$signatureId'" );
 		}
 
 		/** @var \DOMElement */
@@ -1381,7 +1433,7 @@ class XAdES extends XMLSecurityDSig
         $nodes = $xpath->query( "./ds:SignatureValue", $signature );
 		if ( ! $nodes || ! $nodes->count() )
 		{
-			throw new XAdESException( "A timestamp cannot be created because there is no existng signaure with @Id '$signatureId'" );
+			throw new XAdESException( "A timestamp cannot be created because there is no existng signature value" );
 		}
 
 		/** @var \DOMElement */
@@ -1409,6 +1461,170 @@ class XAdES extends XMLSecurityDSig
 			throw new XAdESException("<QualifyingProperties> not found or invalid");
 
 		$qp = Generic::fromNode( $qualifyingProperties[0] );
+
+		if ( ! $qp instanceof QualifyingProperties )
+		{
+			throw new XAdESException("Unable to find the <QualifyingProperties> element");
+		}
+
+		/** @var XmlCore */
+		$startPoint = null;
+		/** @var XmlCore */
+		$parent = null;
+
+		if ( ! $qp->unsignedProperties )
+		{
+			$parent = $qp;
+			$startPoint = new UnsignedProperties(
+				new UnsignedSignatureProperties(
+					$timestamp					
+				)
+			);
+		}
+		else if ( ! $qp->unsignedProperties->unsignedSignatureProperties )
+		{
+			$parent = $qp->unsignedProperties;
+			$startPoint = new UnsignedSignatureProperties(
+				$timestamp
+			);
+		}
+		else
+		{
+			$parent = $qp->unsignedProperties->unsignedSignatureProperties;
+			$startPoint = $timestamp;
+		}
+
+		$parent->validateElement();
+
+		// OK, time to write the timestamp
+		$startPoint->generateXml( $parent->node );
+	}
+
+	/**
+     * Adds a &lt;ArchiveTimeStamp> which stores DER encoded response from a 
+	 * Time Stamp Authority (TSA) as defined in RFC3161.  The data passed is 
+	 * hashed, in this case using SHA256 and it the hash that is sent to the
+	 * TSA and which is used by the TSA to create a signature along with a record
+	 * of the date and time. 
+     * 
+     * @param \DOMDocument $doc A DOMDocument instance that includes &lt;ds:SignatureValue>
+     * @param string $signatureId The id of <ds:Signature> and isused as the property @Target of &lt;QualifyingProperties>
+     * @param string $propertyId An id to use to identify the property.  Currently not used.
+	 * @param string $tsaURL (optional) The URL to use to access a TSA
+     * @return void
+     */
+	public function addArchiveTimestamp( $doc, $signatureId, $propertyId = null, $tsaURL = null )
+	{
+		// Make sure there is a useful property id even when null is passed in
+		$propertyId = $propertyId ?? self::generateGUID( '_' );
+
+		// Now create the imprint for the timestamp.
+		// The task is to create a concatenated string of various elements 
+		// as defined in ETSI EN 319 132-1 V1.1.1 (2016-04) section 5.5.2.2
+
+		/** @var \DOMElement */
+		$signatureNode = $this->locateSignature( $doc );
+		if ( ! $signatureNode )
+		{
+			throw new XAdESException( "An archive timestamp cannot be created because there is no existng signature with @Id '$signatureId'" );
+		}
+		$signedInfo = $this->canonicalizeSignedInfo();
+
+		/** @var \lyquidity\xmldsig\xml\Signature */
+		$signature = Generic::fromNode( $signatureNode );
+		
+		// Start with canonicalized references
+		$canonicalized = implode( '', $this->validateReference() );
+
+		// Next add the signed info
+		$canonicalized .= $signedInfo;
+
+		// And the signature value
+		if ( ! $signature->signatureValue )
+		{
+			throw new XAdESException( "A timestamp cannot be created because there is no existng signature value" );
+		}
+		$canonicalized .= $this->canonicalizeData( $signature->signatureValue->node, $this->canonicalMethod );
+
+		// Now the key info
+		if ( $signature->keyInfo )
+			$canonicalized .= $this->canonicalizeData( $signature->keyInfo->node, $this->canonicalMethod );
+
+		/** @var QualifyingProperties */
+		$qp = $signature->getObjectFromPath( array( ElementNames::Object, ElementNames::QualifyingProperties ) );
+
+		if ( ! $qp )
+			throw new XAdESException("<QualifyingProperties> not found or invalid");
+
+		/**
+		 * From ETSI EN 319 132-1 V1.1.1 (2016-04) section 5.5.2.2
+		 * 
+		 * 4) Take the unsigned signature qualifying properties that appear before the current ArchiveTimeStamp in the
+		 *    order they appear within the UnsignedSignatureProperties, canonicalize each one as specified in
+		 *    clause 4.5, and concatenate each resulting octet stream to the final octet stream.
+		 * 
+		 * BMS: This surely applies when validating.  When create a timestamp ALL elements are before the timestamp 
+		 * 		because it doesn't exist yet.
+		 */
+
+		foreach( $qp->unsignedProperties->unsignedSignatureProperties->properties ?? array() as $property )
+		{
+			/**
+			 * While concatenating, the following rules apply:
+			 *
+			 * a) the CertificateValues qualifying property shall be incorporated into the signature if it is not
+			 *    already present and the signature misses some of the certificates listed in clause 5.4.1 that are required to
+			 *    validate the XAdES signature;
+			 * b) the RevocationValues qualifying property shall be incorporated into the signature if it is not already
+			 *    present and the signature misses some of the revocation data listed in clause 5.4.2 that are required to
+			 *    validate the XAdES signature;
+			 * c) the AttrAuthoritiesCertValues qualifying property shall be incorporated into the signature if
+			 *    not already present and the following conditions are true: attribute certificate(s) or signed assertions have
+			 *    been incorporated into the signature, and the signature misses some certificates required for their
+			 *    validation; and
+			 * 
+			 * BMS These wil not be used
+			 * 
+			 * d) the AttributeRevocationValues qualifying property shall be incorporated into the signature if
+			 *    not already present and the following conditions are true: attribute certificates or signed assertions have
+			 *    been incorporated into the signature, and the signature misses some revocation values required for their
+			 *    validation.
+			 * 
+			 * BMS These wil not be used
+			 */
+
+			echo get_class( $property ) . "\n";
+		}
+
+		/**
+		 * 5) Take all the ds:Object elements except the one containing QualifyingProperties element, in their
+		 *    order of appearance. Canonicalize each one as specified in clause 4.5, and concatenate each resulting octet
+		 *    stream to the final octet stream.
+		 */
+
+		$object = $signature->object;
+		foreach( $object->childNodes as $childNode )
+		{
+			if ( $childNode instanceof QualifyingProperties ) continue;
+			echo get_class( $childNode ) . "\n";
+		}
+
+		// Create a timestamp
+		$der = TSA::getTimestampDER( $canonicalized, null, $tsaURL );
+
+		if ( ! $signatureId ) $signatureId = 'archive_timestamp';
+		error_log("signature: '$signatureId'");
+
+		$timestamp = new ArchiveTimeStamp(
+			null,
+			$this->canonicalMethod,
+			base64_encode( $der ),
+			"{$signatureId}_{$propertyId}"
+		);
+
+		$timestamp->validateElement();
+
+		$qp = Generic::fromNode( $qp );
 
 		if ( ! $qp instanceof QualifyingProperties )
 		{
@@ -1570,13 +1786,13 @@ class XAdES extends XMLSecurityDSig
 		/** @var Signature */
 		$signature = Generic::fromNode( $signatures[0] );
 
-		// Create a counter signature
-		$xmlDSig = new XMLSecurityDSig( $this->prefix ?? XMLSecurityDSig::defaultPrefix, $xmlResource->counterSignatureId );
+		// Create a counter signature - creating a whole new signature here
+		$xmlDSig = new XMLSecurityDSig( $this->prefix ?? XMLSecurityDSig::defaultPrefix, $xmlResource->elementSignatureId );
 		$xmlDSig->setCanonicalMethod( $canonicalizationMethod );
 
 		// Create a reference id to use 
 		$referenceId = XMLSecurityDSig::generateGUID('counter-signature-');
-		$this->signatureId = $xmlResource->counterSignatureId ?? null;
+		$this->signatureId = $xmlResource->elementSignatureId ?? null;
 
 		if ( $signatureProductionPlace || $signerRole )
 		{
@@ -1715,7 +1931,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		/** @var QualifyingProperties */
-		$qp = $object->getObjectFromPath(array( ElementNames::QualifyingProperties ) );
+		$qp = $object->getObjectFromPath( array( ElementNames::QualifyingProperties ) );
 		if ( ! $qp )
 		{
 			$qp = $object->addChildNode( new QualifyingProperties() );
@@ -1737,7 +1953,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		/** @var CounterSignature */
-		$counterSignature = $unsignedSignatureProperties->getObjectFromPath(array( ElementNames::CounterSignature ) );
+		$counterSignature = $unsignedSignatureProperties->getObjectFromPath( array( ElementNames::CounterSignature ) );
 		if ( ! $counterSignature )
 		{
 			/** @var CounterSignature */
