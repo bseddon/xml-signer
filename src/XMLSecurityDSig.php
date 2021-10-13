@@ -816,7 +816,7 @@ class XMLSecurityDSig
             }
         }
 
-        return true;
+        return $data;
     }
 
     /**
@@ -862,7 +862,7 @@ class XMLSecurityDSig
     }
 
     /**
-     * @return bool
+     * @return bool|string[]
      * @throws \Exception
      */
     public function validateReference()
@@ -886,17 +886,21 @@ class XMLSecurityDSig
 
         /* Initialize/reset the list of validated nodes. */
         $this->validatedNodes = array();
+        $datas = array();
 
         foreach ( $nodeset AS $refNode ) 
         {
-            if ( ! $this->processRefNode( $refNode ) )
+            $data = $this->processRefNode( $refNode );
+            if ( $data === false )
             {
                 /* Clear the list of validated nodes. */
                 $this->validatedNodes = null;
                 throw new \Exception("Reference validation failed: this means the data has been changed");
             }
+
+            $datas[] = $data;
         }
-        return true;
+        return $datas;
     }
 
     /**
