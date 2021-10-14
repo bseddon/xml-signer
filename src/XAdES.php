@@ -44,7 +44,10 @@ use lyquidity\OCSP\Exception\ResponseException\MissingResponseBytesException;
 use lyquidity\OCSP\Ocsp;
 use lyquidity\TSA\TSA;
 use lyquidity\xmldsig\xml\ArchiveTimeStamp;
+use lyquidity\xmldsig\xml\AttrAuthoritiesCertValues;
+use lyquidity\xmldsig\xml\AttributeRevocationValues;
 use lyquidity\xmldsig\xml\Cert;
+use lyquidity\xmldsig\xml\CertificateValues;
 use lyquidity\xmldsig\xml\CertV2;
 use lyquidity\xmldsig\xml\CounterSignature;
 use lyquidity\xmldsig\xml\DataObjectFormat;
@@ -54,6 +57,7 @@ use lyquidity\xmldsig\xml\ElementNames;
 use lyquidity\xmldsig\xml\Generic;
 use lyquidity\xmldsig\xml\Obj;
 use lyquidity\xmldsig\xml\QualifyingProperties;
+use lyquidity\xmldsig\xml\RevocationValues;
 use lyquidity\xmldsig\xml\Signature;
 use lyquidity\xmldsig\xml\SignaturePolicyId;
 use lyquidity\xmldsig\xml\SignaturePolicyIdentifier;
@@ -1018,8 +1022,8 @@ class XAdES extends XMLSecurityDSig
 				"Unable to find <signedProperties>"
 			);
 
-			$objDSig = $this->locateSignature( $signatureDoc );
-			if ( ! $objDSig )
+			$signatureNode = $this->locateSignature( $signatureDoc );
+			if ( ! $signatureNode )
 			{
 				throw new XAdESException("Cannot locate Signature Node");
 			}
@@ -1027,7 +1031,8 @@ class XAdES extends XMLSecurityDSig
 
 			$return = $this->validateReference();
 
-			if (! $return) {
+			if ( ! $return )
+			{
 				throw new XAdESException("Reference Validation Failed");
 			}
 
@@ -1038,7 +1043,7 @@ class XAdES extends XMLSecurityDSig
 			}
 			$key = NULL;
 
-			$objKeyInfo = XMLSecEnc::staticLocateKeyInfo( $objKey, $objDSig );
+			$objKeyInfo = XMLSecEnc::staticLocateKeyInfo( $objKey, $signatureNode );
 
 			if ( ! $objKeyInfo->key && empty( $key ) && $certificateFile ) 
 			{
@@ -1567,33 +1572,90 @@ class XAdES extends XMLSecurityDSig
 		 * 		because it doesn't exist yet.
 		 */
 
+		$hasCertificateValues = false;
+		$hasRevocationValues = false;
+		$hasAttrAuthoritiesCertValues = false;
+		$hasAttributeRevocationValues = false;
+
 		foreach( $qp->unsignedProperties->unsignedSignatureProperties->properties ?? array() as $property )
 		{
+			/** @var XmlCore $property */
+			echo get_class( $property ) . "\n";
+
 			/**
 			 * While concatenating, the following rules apply:
 			 *
 			 * a) the CertificateValues qualifying property shall be incorporated into the signature if it is not
 			 *    already present and the signature misses some of the certificates listed in clause 5.4.1 that are required to
 			 *    validate the XAdES signature;
+			 */
+
+			if ( $property instanceof CertificateValues )
+			{
+				$hasCertificateValues = true;	
+			}
+
+			/**
 			 * b) the RevocationValues qualifying property shall be incorporated into the signature if it is not already
 			 *    present and the signature misses some of the revocation data listed in clause 5.4.2 that are required to
 			 *    validate the XAdES signature;
+			 */
+
+			if ( $property instanceof RevocationValues )
+			{
+				$hasRevocationValues = true;	
+			}
+
+			/**
 			 * c) the AttrAuthoritiesCertValues qualifying property shall be incorporated into the signature if
 			 *    not already present and the following conditions are true: attribute certificate(s) or signed assertions have
 			 *    been incorporated into the signature, and the signature misses some certificates required for their
 			 *    validation; and
 			 * 
-			 * BMS These wil not be used
-			 * 
+			 * BMS These will not be used
+			 *
+			 */
+			
+			if ( $property instanceof AttrAuthoritiesCertValues )
+			{
+				$hasAttrAuthoritiesCertValues = true;	
+			}
+
+			/**
 			 * d) the AttributeRevocationValues qualifying property shall be incorporated into the signature if
 			 *    not already present and the following conditions are true: attribute certificates or signed assertions have
 			 *    been incorporated into the signature, and the signature misses some revocation values required for their
 			 *    validation.
 			 * 
-			 * BMS These wil not be used
+			 * BMS These will not be used
 			 */
 
-			echo get_class( $property ) . "\n";
+			if ( $property instanceof AttributeRevocationValues )
+			{
+				$hasAttributeRevocationValues = true;	
+			}
+
+			$canonicalized .= $this->canonicalizeData( $property->node, $this->canonicalMethod );			
+		}
+
+		if ( ! $hasCertificateValues )
+		{
+			$canonicalized .= $this->checkCertificateValues( $signatureNode, $signature );
+		}
+
+		if ( ! $hasRevocationValues )
+		{
+			$canonicalized .= $this->checkRevocationValues( $signatureNode, $signature );
+		}
+
+		if ( ! $hasAttrAuthoritiesCertValues )
+		{
+			$canonicalized .= $this->checkAttrAuthoritiesCertValues( $signatureNode, $signature );
+		}
+
+		if ( ! $hasAttributeRevocationValues )
+		{
+			$canonicalized .= $this->checkAttributeRevocationValues( $signatureNode, $signature );
 		}
 
 		/**
@@ -1606,7 +1668,11 @@ class XAdES extends XMLSecurityDSig
 		foreach( $object->childNodes as $childNode )
 		{
 			if ( $childNode instanceof QualifyingProperties ) continue;
+
+			/** @var XmlCore $childNode */
 			echo get_class( $childNode ) . "\n";
+
+			$canonicalized .= $this->canonicalizeData( $childNode->node, $this->canonicalMethod );
 		}
 
 		// Create a timestamp
@@ -1623,8 +1689,6 @@ class XAdES extends XMLSecurityDSig
 		);
 
 		$timestamp->validateElement();
-
-		$qp = Generic::fromNode( $qp );
 
 		if ( ! $qp instanceof QualifyingProperties )
 		{
@@ -1662,6 +1726,64 @@ class XAdES extends XMLSecurityDSig
 
 		// OK, time to write the timestamp
 		$startPoint->generateXml( $parent->node );
+	}
+
+	/**
+	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
+	 * and return a canonicalized string of the node.
+	 *
+	 * @param \DOMElement $signatureNode
+	 * @param Signature $signature
+	 * @return string
+	 */
+	private function checkCertificateValues( $signatureNode, $signature )
+	{
+		return '';
+	}
+
+	/**
+	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
+	 * and return a canonicalized string of the node.
+	 *
+	 * @param \DOMElement $signatureNode
+	 * @param Signature $signature
+	 * @return string
+	 */
+	private function checkRevocationValues( $signatureNode, $signature )
+	{
+		// Begin by checking the signing certificate.
+
+		return '';
+	}
+
+	/**
+	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
+	 * and return a canonicalized string of the node.
+	 * 
+	 * BMS This is currently not used and will return an empty string
+	 *
+	 * @param \DOMElement $signatureNode
+	 * @param Signature $signature
+	 * @return string
+	 */
+	private function checkAttrAuthoritiesCertValues( $signatureNode, $signature )
+	{
+		return '';
+	}
+
+	/**
+	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
+	 * and return a canonicalized string of the node.
+	 * 
+	 * BMS This is currently not used and will return an empty string
+	 *
+	 * @param \DOMElement $signatureNode
+	 * @param Signature $signature
+	 * @return string
+	 */
+	private function checkAttributeRevocationValues( $signatureNode, $signature )
+	{
+		return '';
 	}
 
 	/**
