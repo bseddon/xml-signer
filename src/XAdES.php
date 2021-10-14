@@ -1738,7 +1738,72 @@ class XAdES extends XMLSecurityDSig
 	 */
 	private function checkCertificateValues( $signatureNode, $signature )
 	{
-		return '';
+		/**
+		 * Note from section 5.4.1 of the specification. The CertificateValues qualifying property:
+		 * 
+		 * 1) Shall contain the certificate of the trust anchor, if such certificate does exist and 
+		 *    if it is not present within the ds:KeyInfo. If this certificate is present within the 
+		 *    ds:KeyInfo, it should not be included.
+		 *
+		 * 2) Shall contain the CA certificates within the signing certificate path that are not 
+		 *    present within the ds:KeyInfo. The certificates present within ds:KeyInfo element 
+		 *    should not be included.
+		 *
+		 * 3) Shall contain the signing certificate if it is not present within the ds:KeyInfo. If 
+		 *    this certificate is present within the ds:KeyInfo, it should not be included.
+		 *
+		 * 4) Shall contain certificates used to sign revocation status information (e.g. CRLs or OCSP 
+		 *    responses) of certificates in 1), 2), and 3), and certificates within their respective 
+		 *    certificate paths that are not present in the signature. Certificate values present 
+		 *    within the signature, including certificate values within the revocation status information 
+		 *    themselves should not be included.
+		 *
+		 * 5) Shall not contain CA certificates that pertain exclusively to the certificate paths of 
+		 *    certificates used to sign attribute certificates or signed assertions within SignerRoleV2, 
+		 *    or electronic time-stamps. And ETSI 38 ETSI EN 319 132-1 V1.1.1 (2016-04)
+		 *
+		 * 6) May contain a set of certificates used to validate any countersignature incorporated
+		 *    into the XAdES signature * that are not present in other elements of the XAdES signature 
+		 *    or its countersignatures. This set may include any of the certificates listed in 1), 2), 
+		 *    3) and 4) referred to signing certificates of countersignatures instead of the signing 
+		 *    certificate of the XAdES signature. The certificates present elsewhere in the XAdES signature
+		 *    or its countersignatures should not be included. 
+		 */
+
+		// Begin with 1), 2) and 3) that is by checking the signing certificate chain.
+
+		$securityKey = $this->locateKey();
+		if ( ! $securityKey ) 
+		{
+			throw new XAdESException("We have no idea about the key");
+		}
+
+		XMLSecEnc::staticLocateKeyInfo( $securityKey, $signatureNode );
+
+		// Get the non-signing <KeyInfo> certificates
+		$certificates = array_reduce( $securityKey->getX509CertificateKeys(), function( $carry, $key ) use( $securityKey )
+		{
+			$certificatePEM = $securityKey->getX509Certificate( $key );
+			$thumbprint = XMLSecurityKey::getRawThumbprint( $certificatePEM );
+			// Is this the signing certificate? If so, ignore.
+			if ( $securityKey->getX509Thumbprint() != $thumbprint ) 
+			{
+				$carry[] = $certificatePEM;
+			}
+			return $carry;
+		}, array() );
+
+		// Get the signing certificate
+		$signingCertificatePEM = $securityKey->getX509Certificate(0);
+		$keyChain = array();
+		$missingCertificates = array();
+		$revokeValues = array();
+
+		$missing = $this->verifyChain( $certificates, $signingCertificatePEM, $keyChain, $missingCertificates, $revokeValues );
+		if ( ! $missing ) 
+			return '';
+
+		// Need to add 
 	}
 
 	/**
@@ -1751,9 +1816,110 @@ class XAdES extends XMLSecurityDSig
 	 */
 	private function checkRevocationValues( $signatureNode, $signature )
 	{
-		// Begin by checking the signing certificate.
-
 		return '';
+	}
+
+	/**
+	 * Attempts to verify the chain of a certificate
+	 *
+	 * @param string[] $certificates
+	 * @param string $subjectPEM The certificate to find verify the chain for
+	 * @param Sequence[] $keyChain	An array of the discovered certificate chain
+	 * @param string[] $missingCertificates An array of the certificates that are not in <KeyInfo>
+	 * @param string[] $revocationValues An array of revocation values
+	 * @return void
+	 */
+	private function verifyChain( $certificates, $subjectPEM, &$keyChain, &$missingCertificates, $revocationValues  )
+	{
+		$loader = new CertificateLoader();
+		$subject = $loader->fromString( $subjectPEM );
+		if ( ! $subject )
+		{
+			throw new XAdESException('Unable to parse the certificate');
+		}
+		$info = new CertificateInfo();
+
+		$keyChain = array(
+			$subject
+		);
+
+		$missingCertificates = array();
+
+		while( true )
+		{
+			$subjectSubjectDN = $info->getDNString( $subject, false );
+			$subjectIssuertDN = $info->getDNString( $subject, true );
+
+			if ( $info->compareIssuerStrings( $subjectSubjectDN, $subjectIssuertDN ) )
+			{
+				// The subject certificate is self-signed so we're done
+				break;
+			}
+
+			$issuer = $this->verifyIssuerInKeyInfo( $certificates, $subject );
+			if ( $issuer )
+			{
+				$keyChain[] = $subject = $issuer;
+				continue;
+			}
+
+			// Reached the end of the chain covered by certificates in <KeyInfo> so need to look at the AIA
+			list( $certificate, $certificateInfo, $ocspResponderUrl, $issuerCertBytes, $issuer ) = array_values( Ocsp::getCertificate( $subject ) );
+
+			/** @var Sequence $certificate */
+			/** @var CertificateInfo $certificateInfo */
+			/** @var Sequence $issuer */
+			if ( ! $issuer )
+			{
+				// Can't find the issuer
+				break;
+			}
+
+			if ( ! Ocsp::validateCertificate( $subject, $issuer ) )
+				continue;
+
+			$keyChain[] = $subject = $issuer;
+			$missingCertificates[] = Ocsp::PEMize( $issuerCertBytes );
+
+			if ( $ocspResponderUrl )
+			{
+				$ocspResponse = Ocsp::sendRequest( $issuer );
+//				$ocspResponse->
+			}
+			else
+			{
+				$crlUrl = $info->extractCRLUrl( $issuer );
+				if ( $crlUrl )
+				{
+					$crlResponse = file_get_contents( $ocspResponderUrl );
+				}
+			}
+		}
+
+		return count( $missingCertificates ) > 0;
+	}
+
+	private function verifyIssuerInKeyInfo( $existingCertificates, $subject )
+	{
+		$loader = new CertificateLoader();
+
+		$info = new CertificateInfo();
+		$subjectIssuerDN = $info->getDNString( $subject, true );
+
+		foreach( $existingCertificates as $issuerPEM )
+		{
+			$issuer = $loader->fromString( $issuerPEM );
+			$issuerSubjectDN = $info->getDNString( $issuer, false );
+			if ( ! $info->compareIssuerStrings( $subjectIssuerDN, $issuerSubjectDN ) )
+				continue;
+
+			if ( ! Ocsp::validateCertificate( $subject, $issuer ) )
+				continue;
+
+			return $issuer;
+		}
+
+		return false;
 	}
 
 	/**
