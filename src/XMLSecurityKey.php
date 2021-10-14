@@ -854,6 +854,16 @@ class XMLSecurityKey
     }
 
     /**
+     * Provide access to the certificate list class so a caller is able to iterate the private list
+     *
+     * @return mixed[]
+     */
+    public function getX509CertificateKeys()
+    {
+        return array_keys( $this->x509Certificates );
+    }
+
+    /**
      * Get the thumbprint of this X509 certificate.
      *
      * Returns:
