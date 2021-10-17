@@ -248,7 +248,7 @@ abstract class XmlCore
 			return null;
 		}
 
-		$property = $this->{ reset( $properties )->name};
+		$property = $this->{ reset( $properties )->name };
 
 		if ( $property && $pathElements )
 		{
