@@ -54,6 +54,7 @@ use lyquidity\xmldsig\xml\DataObjectFormat;
 use lyquidity\xmldsig\xml\DigestMethod;
 use lyquidity\xmldsig\xml\DigestValue;
 use lyquidity\xmldsig\xml\ElementNames;
+use lyquidity\xmldsig\xml\EncapsulatedPKIData;
 use lyquidity\xmldsig\xml\Generic;
 use lyquidity\xmldsig\xml\Obj;
 use lyquidity\xmldsig\xml\QualifyingProperties;
@@ -77,6 +78,7 @@ use lyquidity\xmldsig\xml\TransformXPathFilter2;
 use lyquidity\xmldsig\xml\UnsignedProperties;
 use lyquidity\xmldsig\xml\UnsignedSignatureProperties;
 use lyquidity\xmldsig\xml\X509SerialNumber;
+use lyquidity\xmldsig\xml\XAdESTimeStamp;
 use lyquidity\xmldsig\xml\XmlCore;
 use lyquidity\xmldsig\xml\XPathFilter2;
 
@@ -224,9 +226,9 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
 	 * @return XAdES|bool The instance will be returned.
 	 */
-	public static function timestamp( $xmlResource, $tsaURL = null )
+	public static function timestamp( $xmlResource, $tsaURL = null, $caBundle = null )
 	{
-		return self::internalTimestamp( $xmlResource, null, $tsaURL );
+		return self::internalTimestamp( $xmlResource, null, $tsaURL, $caBundle );
 	}
 
 	/**
@@ -236,9 +238,9 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
 	 * @return XAdES|bool The instance will be returned.
 	 */
-	public static function archiveTimestamp( $xmlResource, $tsaURL = null )
+	public static function archiveTimestamp( $xmlResource, $tsaURL = null, $caBundle = null )
 	{
-		return self::internalTimestamp( $xmlResource, ADDARCHIVETIMESTAMP, $tsaURL );
+		return self::internalTimestamp( $xmlResource, ADDARCHIVETIMESTAMP, $tsaURL, $caBundle );
 	}
 
 	/**
@@ -251,7 +253,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
 	 * @return XAdES|bool The instance will be returned.
 	 */
-	private static function internalTimestamp( $xmlResource, $timestampMethod = null, $tsaURL = null )
+	private static function internalTimestamp( $xmlResource, $timestampMethod = null, $tsaURL = null, $caBundle = null )
 	{
 		if ( ! $timestampMethod )
 		{
@@ -322,7 +324,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		$instance = new static();
-		$instance->$timestampMethod( $doc, $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL );
+		$instance->$timestampMethod( $doc, $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL, $caBundle );
 
 		$doc->save( $instance->getSignatureFilename( $xmlResource->saveLocation, $xmlResource->saveFilename ), LIBXML_NOEMPTYTAG );
 
@@ -1417,7 +1419,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
      * @return void
      */
-    public function addTimestamp( $doc, $signatureId, $propertyId = null, $tsaURL = null )
+    public function addTimestamp( $doc, $signatureId, $propertyId = null, $tsaURL = null, $caBundle = null )
 	{
 		// Make sure there is a useful property id even when null is passed in
 		$propertyId = $propertyId ?? 'timestamp';
@@ -1445,7 +1447,7 @@ class XAdES extends XMLSecurityDSig
 		$signatureValue = $nodes[0];
 
 		$canonicalized = $this->canonicalizeData( $signatureValue, $this->canonicalMethod );
-		$der = TSA::getTimestampDER( $canonicalized, null, $tsaURL );
+		$der = TSA::getTimestampDER( $canonicalized, $caBundle, $tsaURL );
 
 		if ( ! $signatureId ) $signatureId = 'timestamp';
 		error_log("signature: '$signatureId'");
@@ -1518,7 +1520,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param string $tsaURL (optional) The URL to use to access a TSA
      * @return void
      */
-	public function addArchiveTimestamp( $doc, $signatureId, $propertyId = null, $tsaURL = null )
+	public function addArchiveTimestamp( $doc, $signatureId, $propertyId = null, $tsaURL = null, $caBundle = null )
 	{
 		// Make sure there is a useful property id even when null is passed in
 		$propertyId = $propertyId ?? self::generateGUID( '_' );
@@ -1555,11 +1557,33 @@ class XAdES extends XMLSecurityDSig
 		if ( $signature->keyInfo )
 			$canonicalized .= $this->canonicalizeData( $signature->keyInfo->node, $this->canonicalMethod );
 
-		/** @var QualifyingProperties */
-		$qp = $signature->getObjectFromPath( array( ElementNames::Object, ElementNames::QualifyingProperties ) );
+		$obj = $signature->object;
+		if ( ! $obj )
+		{
+			$obj = $signature->unsignedProperties = new Obj();
+			$obj->generateXml( $signature->node );
+		}
 
+		$qp = $obj->getQualifyingProperties();
 		if ( ! $qp )
-			throw new XAdESException("<QualifyingProperties> not found or invalid");
+		{
+			$qp = $obj->addChildNode( new UnsignedProperties() );
+			$qp->generateXml( $obj->node );
+		}
+
+		$unsignedProperties = $qp->unsignedProperties;
+		if ( ! $unsignedProperties )
+		{
+			$unsignedProperties = $qp->unsignedProperties = new UnsignedProperties();
+			$unsignedProperties->generateXml( $qp->node );
+		}
+
+		$unsignedSignatureProperties = $unsignedProperties->unsignedSignatureProperties;
+		if ( ! $unsignedSignatureProperties )
+		{
+			$unsignedSignatureProperties = $qp->unsignedProperties = new UnsignedSignatureProperties();
+			$unsignedSignatureProperties->generateXml( $unsignedProperties->node );
+		}
 
 		/**
 		 * From ETSI EN 319 132-1 V1.1.1 (2016-04) section 5.5.2.2
@@ -1577,10 +1601,16 @@ class XAdES extends XMLSecurityDSig
 		$hasAttrAuthoritiesCertValues = false;
 		$hasAttributeRevocationValues = false;
 
-		foreach( $qp->unsignedProperties->unsignedSignatureProperties->properties ?? array() as $property )
+		foreach( $unsignedSignatureProperties->properties ?? array() as $property )
 		{
 			/** @var XmlCore $property */
 			echo get_class( $property ) . "\n";
+
+			if ( $property instanceof XAdESTimeStamp )
+			{
+				// Should add <TimeStampValidationData> to hold certificate values for the timestamp
+				// This element  MUST appear immediately after this timestamp element. See section 5.5.1
+			}
 
 			/**
 			 * While concatenating, the following rules apply:
@@ -1640,7 +1670,7 @@ class XAdES extends XMLSecurityDSig
 
 		if ( ! $hasCertificateValues )
 		{
-			$canonicalized .= $this->checkCertificateValues( $signatureNode, $signature );
+			$canonicalized .= $this->checkCertificateValues( $signatureNode, $unsignedSignatureProperties, $caBundle );
 		}
 
 		if ( ! $hasRevocationValues )
@@ -1676,7 +1706,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		// Create a timestamp
-		$der = TSA::getTimestampDER( $canonicalized, null, $tsaURL );
+		$der = TSA::getTimestampDER( $canonicalized, $caBundle, $tsaURL );
 
 		if ( ! $signatureId ) $signatureId = 'archive_timestamp';
 		error_log("signature: '$signatureId'");
@@ -1733,10 +1763,10 @@ class XAdES extends XMLSecurityDSig
 	 * and return a canonicalized string of the node.
 	 *
 	 * @param \DOMElement $signatureNode
-	 * @param Signature $signature
+	 * @param UnsignedSignatureProperties $unsignedSignatureProperties
 	 * @return string
 	 */
-	private function checkCertificateValues( $signatureNode, $signature )
+	private function checkCertificateValues( $signatureNode, $unsignedSignatureProperties, $caBundle = null )
 	{
 		/**
 		 * Note from section 5.4.1 of the specification. The CertificateValues qualifying property:
@@ -1797,13 +1827,50 @@ class XAdES extends XMLSecurityDSig
 		$signingCertificatePEM = $securityKey->getX509Certificate(0);
 		$keyChain = array();
 		$missingCertificates = array();
-		$revokeValues = array();
+		$revocationValues = array(
+			'ocsp' => array(),
+			'crl' => array()
+		);
 
-		$missing = $this->verifyChain( $certificates, $signingCertificatePEM, $keyChain, $missingCertificates, $revokeValues );
-		if ( ! $missing ) 
-			return '';
+		$this->verifyChain( $certificates, $signingCertificatePEM, $keyChain, $missingCertificates, $revocationValues, $caBundle );
 
-		// Need to add 
+		$missingCertificates = array_unique( $missingCertificates );
+
+		if ( $missingCertificates )
+		{
+			// Look for a CertificateValues element *after* the most recent ArchiveTimeStamp
+			/** @var CertificateValues */
+			$certificateValues = null;
+			foreach( $unsignedSignatureProperties->properties as $property )
+			{
+				switch( get_class( $property ) )
+				{
+					case CertificateValues::class:
+						$certificateValues = $property;
+						break;
+					case ArchiveTimeStamp::class:
+						$certificateValues = null;
+						break;
+				}
+			}
+
+			if ( ! $certificateValues )
+			{
+				$certificateValues = $unsignedSignatureProperties->addProperty( new CertificateValues() );
+				$certificateValues->generateXml( $unsignedSignatureProperties->node );
+			}
+
+			// Add the certificate values
+			foreach( $missingCertificates as $certificate )
+			{
+				// TODO Check if this certificate is already present
+				/** @var CertificateValues $certificateValues */
+				$certificateValues->addProperty( new EncapsulatedPKIData( base64_encode( $certificate ) ) );
+			}
+		}
+
+		$revocationValues['ocsp'] = array_unique( $revocationValues['ocsp'] );
+		$revocationValues['crl'] = array_unique( $revocationValues['crl'] );
 	}
 
 	/**
@@ -1829,7 +1896,7 @@ class XAdES extends XMLSecurityDSig
 	 * @param string[] $revocationValues An array of revocation values
 	 * @return void
 	 */
-	private function verifyChain( $certificates, $subjectPEM, &$keyChain, &$missingCertificates, $revocationValues  )
+	private function verifyChain( $certificates, $subjectPEM, &$keyChain, &$missingCertificates, &$revocationValues, $caBundle = null )
 	{
 		$loader = new CertificateLoader();
 		$subject = $loader->fromString( $subjectPEM );
@@ -1837,13 +1904,16 @@ class XAdES extends XMLSecurityDSig
 		{
 			throw new XAdESException('Unable to parse the certificate');
 		}
-		$info = new CertificateInfo();
 
 		$keyChain = array(
 			$subject
 		);
 
-		$missingCertificates = array();
+		$info = new CertificateInfo();
+
+		// Reached the end of the chain covered by certificates in <KeyInfo> so need to look at the AIA
+		$ocspResponderUrl = $info->extractOcspResponderUrl( $subject );	
+		$this->getRevocationValues( $subject, $ocspResponderUrl, $missingCertificates, $revocationValues, $caBundle );
 
 		while( true )
 		{
@@ -1879,26 +1949,54 @@ class XAdES extends XMLSecurityDSig
 				continue;
 
 			$keyChain[] = $subject = $issuer;
-			$missingCertificates[] = Ocsp::PEMize( $issuerCertBytes );
+			$missingCertificates[] = $issuerCertBytes;
 
-			if ( $ocspResponderUrl )
-			{
-				$ocspResponse = Ocsp::sendRequest( $issuer );
-//				$ocspResponse->
-			}
-			else
-			{
-				$crlUrl = $info->extractCRLUrl( $issuer );
-				if ( $crlUrl )
-				{
-					$crlResponse = file_get_contents( $ocspResponderUrl );
-				}
-			}
+			$this->getRevocationValues( $issuer, $ocspResponderUrl, $missingCertificates, $revocationValues, $caBundle );
 		}
 
 		return count( $missingCertificates ) > 0;
 	}
 
+	/**
+	 * Get an available revocation response (OCSP if possible or CRL)
+	 *
+	 * @param Sequence $certificate
+	 * @param string $ocspResponderUrl
+	 * @param string[] $missingCertificates
+	 * @param string[][] $revocationValues
+	 * @param string $caBundle
+	 * @return void
+	 */
+	private function getRevocationValues( $certificate, $ocspResponderUrl, &$missingCertificates, &$revocationValues, $caBundle = null )
+	{
+		if ( $ocspResponderUrl )
+		{
+			list( $responseBytes, $response, $signerCerts ) = Ocsp::sendRequestRaw( $certificate, null, $caBundle );
+			foreach( $signerCerts as $signerCert )
+			{
+				$missingCertificates[] = $signerCert;
+			}
+			$revocationValues['ocsp'][] = $responseBytes;
+		}
+		else
+		{
+			$info = new CertificateInfo();
+			$crlUrl = $info->extractCRLUrl( $certificate );
+			if ( $crlUrl )
+			{
+				$responseBytes = file_get_contents( $crlUrl );
+				$revocationValues['crl'][] = $responseBytes;
+			}
+		}
+	}
+
+	/**
+	 * Return true if the certificate exists among the KeyInfo certificates
+	 *
+	 * @param string[] $existingCertificates
+	 * @param Sequence $subject
+	 * @return Sequence|false
+	 */
 	private function verifyIssuerInKeyInfo( $existingCertificates, $subject )
 	{
 		$loader = new CertificateLoader();
@@ -1923,7 +2021,7 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
-	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
+	 * Create &lt;checkAttrAuthoritiesCertValues node if there are any certificates that are unaccounted for
 	 * and return a canonicalized string of the node.
 	 * 
 	 * BMS This is currently not used and will return an empty string
@@ -1938,7 +2036,7 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
-	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
+	 * Create &lt;checkAttributeRevocationValues node if there are any certificates that are unaccounted for
 	 * and return a canonicalized string of the node.
 	 * 
 	 * BMS This is currently not used and will return an empty string
