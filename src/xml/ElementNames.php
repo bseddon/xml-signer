@@ -162,4 +162,5 @@ class ElementNames
 	const EncapsulatedPKIData = "EncapsulatedPKIData";
 	const GenericTimeStamp = "GenericTimeStamp";
 	const SignaturePolicyStore = "SignaturePolicyStore";
+	const TimeStampValidationData = "TimeStampValidationData";
 }
