@@ -57,9 +57,9 @@ class RevocationValues extends XmlCore implements UnsignedSignatureProperty
 	 */
 	public function __construct( $crlValues = null, $ocspValues = null, $otherValues = null, $id = null )
 	{
-		$this->crlValues = $crlValues;
-		$this->ocspValues = $ocspValues;
-		$this->otherValues = $otherValues;
+		$this->crlValues = $crlValues; // ?? new CRLValues();
+		$this->ocspValues = $ocspValues; // ?? new OCSPValues();
+		$this->otherValues = $otherValues; // ?? new OtherValues();
 		$this->id = $id;
 	}
 

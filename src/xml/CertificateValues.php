@@ -38,8 +38,8 @@ class CertificateValues extends PropertiesCollection implements UnsignedSignatur
 	public function __construct( $encapsulatedX509Certificates = null, $otherCertificates = null, $id = null )
 	{
 		parent::__construct( array_merge(
-			self::createConstructorArray( $encapsulatedX509Certificates, EncapsulatedX509Certificate::class ),
-			self::createConstructorArray( $otherCertificates, OtherCertificate::class )
+			self::createConstructorArray( $encapsulatedX509Certificates, EncapsulatedX509Certificate::class ) ?? array(),
+			self::createConstructorArray( $otherCertificates, OtherCertificate::class ) ?? array()
 		) );
 
 		$this->id = $id;

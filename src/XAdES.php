@@ -50,13 +50,17 @@ use lyquidity\xmldsig\xml\Cert;
 use lyquidity\xmldsig\xml\CertificateValues;
 use lyquidity\xmldsig\xml\CertV2;
 use lyquidity\xmldsig\xml\CounterSignature;
+use lyquidity\xmldsig\xml\CRLValues;
 use lyquidity\xmldsig\xml\DataObjectFormat;
 use lyquidity\xmldsig\xml\DigestMethod;
 use lyquidity\xmldsig\xml\DigestValue;
 use lyquidity\xmldsig\xml\ElementNames;
+use lyquidity\xmldsig\xml\EncapsulatedOCSPValue;
 use lyquidity\xmldsig\xml\EncapsulatedPKIData;
+use lyquidity\xmldsig\xml\EncapsulatedX509Certificate;
 use lyquidity\xmldsig\xml\Generic;
 use lyquidity\xmldsig\xml\Obj;
+use lyquidity\xmldsig\xml\OCSPValues;
 use lyquidity\xmldsig\xml\QualifyingProperties;
 use lyquidity\xmldsig\xml\RevocationValues;
 use lyquidity\xmldsig\xml\Signature;
@@ -1668,14 +1672,9 @@ class XAdES extends XMLSecurityDSig
 			$canonicalized .= $this->canonicalizeData( $property->node, $this->canonicalMethod );			
 		}
 
-		if ( ! $hasCertificateValues )
+		if ( ! $hasCertificateValues || ! $hasRevocationValues )
 		{
 			$canonicalized .= $this->checkCertificateValues( $signatureNode, $unsignedSignatureProperties, $caBundle );
-		}
-
-		if ( ! $hasRevocationValues )
-		{
-			$canonicalized .= $this->checkRevocationValues( $signatureNode, $signature );
 		}
 
 		if ( ! $hasAttrAuthoritiesCertValues )
@@ -1694,8 +1693,7 @@ class XAdES extends XMLSecurityDSig
 		 *    stream to the final octet stream.
 		 */
 
-		$object = $signature->object;
-		foreach( $object->childNodes as $childNode )
+		foreach( $obj->childNodes as $childNode )
 		{
 			if ( $childNode instanceof QualifyingProperties ) continue;
 
@@ -1835,6 +1833,7 @@ class XAdES extends XMLSecurityDSig
 		$this->verifyChain( $certificates, $signingCertificatePEM, $keyChain, $missingCertificates, $revocationValues, $caBundle );
 
 		$missingCertificates = array_unique( $missingCertificates );
+		$canonicalized = '';
 
 		if ( $missingCertificates )
 		{
@@ -1857,7 +1856,6 @@ class XAdES extends XMLSecurityDSig
 			if ( ! $certificateValues )
 			{
 				$certificateValues = $unsignedSignatureProperties->addProperty( new CertificateValues() );
-				$certificateValues->generateXml( $unsignedSignatureProperties->node );
 			}
 
 			// Add the certificate values
@@ -1865,25 +1863,82 @@ class XAdES extends XMLSecurityDSig
 			{
 				// TODO Check if this certificate is already present
 				/** @var CertificateValues $certificateValues */
-				$certificateValues->addProperty( new EncapsulatedPKIData( base64_encode( $certificate ) ) );
+				$certificateValues->addProperty( new EncapsulatedX509Certificate( base64_encode( $certificate ) ) );
 			}
+
+			$certificateValues->generateXml( $unsignedSignatureProperties->node );
+
+			$canonicalized .= $this->canonicalizeData( $certificateValues->node, $this->canonicalMethod );
 		}
 
 		$revocationValues['ocsp'] = array_unique( $revocationValues['ocsp'] );
 		$revocationValues['crl'] = array_unique( $revocationValues['crl'] );
-	}
 
-	/**
-	 * Create &lt;CertificateValues node if there are any certificates that are unaccounted for
-	 * and return a canonicalized string of the node.
-	 *
-	 * @param \DOMElement $signatureNode
-	 * @param Signature $signature
-	 * @return string
-	 */
-	private function checkRevocationValues( $signatureNode, $signature )
-	{
-		return '';
+		if ( $revocationValues['ocsp'] || $revocationValues['crl'] )
+		{
+			// Look for a CertificateValues element *after* the most recent ArchiveTimeStamp
+			/** @var RevocationValues $values */
+			$values = null;
+			foreach( $unsignedSignatureProperties->properties as $property )
+			{
+				switch( get_class( $property ) )
+				{
+					case RevocationValues::class:
+						$values = $property;
+						break;
+					case ArchiveTimeStamp::class:
+						$values = null;
+						break;
+				}
+			}
+
+			if ( ! $values )
+			{
+				$values = $unsignedSignatureProperties->addProperty( new RevocationValues() );
+			}
+
+			// Add the revocation values
+			if ( $revocationValues['ocsp'] )
+			{
+				/** @var RevocationValues $values */
+				$ocspValues = $values->ocspValues;
+				if ( ! $ocspValues )
+				{
+					$ocspValues = $values->ocspValues = new OCSPValues();
+					// $ocspValues->generateXml( $values->node );
+				}
+	
+				foreach( $revocationValues['ocsp'] as $ocspValue )
+				{
+					/** @var OCSPValues $ocspValues */
+					$ocspValues->addProperty( new EncapsulatedOCSPValue( base64_encode( $ocspValue ) ) );
+				}
+			}
+
+			// Add the revocation values
+			if ( $revocationValues['crl'] )
+			{
+				/** @var RevocationValues $values */
+				$crlValues = $values->crlValues;
+				if ( ! $crlValues )
+				{
+					$crlValues = $values->crlValues = new CRLValues();
+					// $crlValues->generateXml( $values->node );
+				}
+	
+				foreach( $revocationValues['crl'] as $crlValue )
+				{
+					/** @var CRLValues $crlValues */
+					$crlValues->addProperty( new EncapsulatedPKIData( base64_encode( $crlValue ) ) );
+				}
+			}
+
+			$values->generateXml( $unsignedSignatureProperties->node );
+
+			$canonicalized .= $this->canonicalizeData( $values->node, $this->canonicalMethod );
+		}
+
+		return $canonicalized;
 	}
 
 	/**
