@@ -10,6 +10,8 @@
 
 namespace lyquidity\xmldsig\xml;
 
+use lyquidity\xmldsig\XAdES;
+
 /**
  * <!-- targetNamespace="http://uri.etsi.org/01903/v1.4.1#"
  * The preamble of the XML Schema file also includes the following namespace declaration:
@@ -51,6 +53,9 @@ class TimeStampValidationData extends XmlCore implements UnsignedSignatureProper
 	 */
 	public function __construct( $certificateValues = null, $revocationValues = null )
 	{
+		$this->defaultNamespace = XAdES::NamespaceUrl1v41;
+		$this->prefix = 'xa141';
+
 		$this->certificateValues = $certificateValues;
 		$this->revocationValues = $revocationValues;
 	}
