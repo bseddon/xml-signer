@@ -72,13 +72,17 @@ class Identifier extends TextBase
 	}
 
 	/**
-	 * Create &lt;Identifier> and any descendent elements 
-	 * @return void
+	 * Create &lt;Identifier> and any descendent elements
+	 * 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		return parent::generateXml( $parentNode, array( AttributeNames::Qualifier => ( $this->qualifier ? $this->qualifier->getName() : null ) ) );
+		return parent::generateXml( $parentNode, array( AttributeNames::Qualifier => ( $this->qualifier ? $this->qualifier->getName() : null ) ), $insertAfter );
 	}
 
 	/**

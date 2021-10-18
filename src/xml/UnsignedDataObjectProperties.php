@@ -59,9 +59,17 @@ class UnsignedDataObjectProperties extends XmlCore
 		return ElementNames::UnsignedDataObjectProperties;
 	}
 
-	public function generateXml( $parentNode, $attributes = array() )
+	/**
+	 * Create a &lt;UnsignedDataObjectProperties
+	 *
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
+	 */
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		parent::validateElement();
+		parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		// TODO
 	}

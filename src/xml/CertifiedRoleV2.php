@@ -73,14 +73,17 @@ class CertifiedRoleV2 extends XmlCore
 
 	/**
 	 * Create &lt;CertifiedRole> and any descendent elements 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
 	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		if ( ! $this->certificate ) return;
 
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 		$this->certificate->generateXml( $newElement );
 		return $newElement;
 	}

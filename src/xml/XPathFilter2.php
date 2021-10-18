@@ -60,13 +60,15 @@ class XPathFilter2 extends XPathFilter
 
 	/**
 	 * Create an &lt;XPath> with @Filter
+	 *
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode, array( AttributeNames::Filter => $this->filter ) );
+		$newElement = parent::generateXml( $parentNode, array( AttributeNames::Filter => $this->filter ), $insertAfter );
 
 		$filter = $newElement->ownerDocument->createAttribute( AttributeNames::Filter );
 		$filter->value = $this->filter;

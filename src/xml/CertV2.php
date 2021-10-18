@@ -70,14 +70,17 @@ class CertV2 extends XmlCore
 	}
 
 	/**
-	 * Create &lt;Cert> and any descendent elements 
-	 * @return void
+	 * Create &lt;CertV2> and any descendent elements 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
 		// Only add @URI if the value is not null (an empty string is OK)
-		$newElement = parent::generateXml( $parentNode, is_null( $this->uri ) ? null: array( AttributeNames::URI => $this->uri ) );
+		$newElement = parent::generateXml( $parentNode, is_null( $this->uri ) ? null: array( AttributeNames::URI => $this->uri ), $insertAfter );
 
 		if ( $this->certDigest )
 			$this->certDigest->generateXml( $newElement );

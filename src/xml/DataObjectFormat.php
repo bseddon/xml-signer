@@ -97,12 +97,15 @@ class DataObjectFormat extends XmlCore
 
 	/**
 	 * Create &lt;DataObjectFormat> and any descendent elements 
-	 * @return void
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode, array( AttributeNames::ObjectReference => $this->objectReference ) );
+		$newElement = parent::generateXml( $parentNode, array( AttributeNames::ObjectReference => $this->objectReference ), $insertAfter );
 
 		// Now create a node for all the sub-nodes where they exist
 		if ( $this->description )

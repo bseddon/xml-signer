@@ -71,15 +71,17 @@ class QualifyingProperties extends XmlCore
 	}
 
 	/**
-	 * Create &lt;QualifyingProperties> and any descendent elements 
+	 * Create &lt;QualifyingProperties> and any descendent elements
+	 * 
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode, array( AttributeNames::Target => $this->target ) );
+		$newElement = parent::generateXml( $parentNode, array( AttributeNames::Target => $this->target ), $insertAfter );
 
 		if ( $this->signedProperties )
 			$this->signedProperties->generateXml( $newElement );

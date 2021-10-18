@@ -106,9 +106,17 @@ class SignerRoleV2 extends XmlCore
 		return ElementNames::SignerRoleV2;
 	}
 
-	public function generateXml( $parentNode, $attributes = array() )
+	/**
+	 * Create &lt;SignerRoleV2> and any descendent elements
+	 *
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
+	 */
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->claimedRoles )
 			$this->claimedRoles->generateXml( $newElement );

@@ -94,13 +94,17 @@ class Signature extends XmlCore
 	}
 
 	/**
-	 * Create &lt;Signature> and any descendent elements 
-	 * @return void
+	 * Create &lt;Signature> and any descendent elements
+	 * 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		// Now create a node for all the sub-nodes where they exist
 		foreach ( $this->elementsToArray() as $tag => $element )

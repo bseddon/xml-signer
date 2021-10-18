@@ -90,13 +90,17 @@ class SigPolicyHash extends XmlCore
 	}
 
 	/**
-	 * Create &lt;SigPolicyHash> and any descendent elements 
-	 * @return void
+	 * Create &lt;SigPolicyHash> and any descendent elements
+	 *
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->digestMethod )
 			$this->digestMethod->generateXml( $newElement );

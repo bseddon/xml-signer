@@ -87,9 +87,17 @@ class SignatureProductionPlaceV2 extends XmlCore
 		return ElementNames::SignatureProductionPlaceV2;
 	}
 
-	public function generateXml( $parentNode, $attributes = array() )
+	/**
+	 * Create &lt;SignatureProductionPlace> and any descendent elements
+	 *
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
+	 */
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->city )
 			$this->city->generateXml( $newElement );

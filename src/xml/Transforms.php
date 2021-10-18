@@ -66,15 +66,19 @@ class Transforms extends XmlCore
 	}
 
 	/**
-	 * Create &lt;Transforms> and any descendent elements 
-	 * @return void
+	 * Create &lt;Transforms> and any descendent elements
+	 *
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		if ( ! $this->transforms ) return;
 
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		foreach ( $this->transforms as $transform )
 		{

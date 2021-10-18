@@ -61,13 +61,15 @@ class EncapsulatedPKIData extends Base64String
 
 	/**
 	 * Create an element with an optional @Id
+	 * 
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml($parentNode, $attributes = array())
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		return parent::generateXml( $parentNode, array( AttributeNames::Encoding => $this->encoding ) );
+		return parent::generateXml( $parentNode, array( AttributeNames::Encoding => $this->encoding ), $insertAfter );
 	}
 
 	/** 

@@ -189,16 +189,16 @@ class SigningCertificateV2 extends XmlCore
 	}
 
 	/**
-	 * Generates Xml nodes for the instance.  
+	 * Create &lt;SigningCertificateV2> and any descendent elements
 	 *
-	 * @param \DOMElement|\DOMDocument $parentNode
-	 * @param string[] $namespaces
+	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 		$this->cert->generateXml( $newElement );
 	}
 

@@ -62,12 +62,15 @@ class DigestAlgAndValue extends XmlCore
 
 	/**
 	 * Create &lt;DigestAlgAndValue> and any descendent elements 
-	 * @return void
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode, $attributes );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		$this->digestMethod->generateXml( $newElement );
 		$this->digestValue->generateXml( $newElement );

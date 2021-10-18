@@ -100,15 +100,16 @@ class SignaturePolicyId extends SignaturePolicyBase
 	}
 
 	/**
-	 * Generates Xml nodes for the instance.  
+	 * Generates Xml nodes for the instance.
+	 * 
 	 * @param \DOMElement $parentNode
-	 * @param string[] $namespaces
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->sigPolicyId )
 			$this->sigPolicyId->generateXml( $newElement );

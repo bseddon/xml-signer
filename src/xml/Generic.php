@@ -249,11 +249,12 @@ class Generic extends XmlCore
 	 * Generate the Xml nodes
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
 	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode, $this->attributes );
+		$newElement = parent::generateXml( $parentNode, $this->attributes, $insertAfter );
 
 		if ( $this->childNodes )
 			foreach( $this->childNodes as $childNode)

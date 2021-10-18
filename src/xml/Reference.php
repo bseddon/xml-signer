@@ -112,13 +112,17 @@ class Reference extends XmlCore
 	}
 
 	/**
-	 * Create &lt;DigestValue> and any descendent elements 
-	 * @return void
+	 * Create &lt;Reference> and any descendent elements
+	 * 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode, array( AttributeNames::URI => $this->uri, AttributeNames::Type => $this->type ) );
+		$newElement = parent::generateXml( $parentNode, array( AttributeNames::URI => $this->uri, AttributeNames::Type => $this->type ), $insertAfter );
 
 		// Now create a node for all the sub-nodes where they exist
 		$this->transforms->generateXml( $newElement );

@@ -63,12 +63,16 @@ class DigestMethod extends XmlCore
 
 	/**
 	 * Create &lt;DigestMethod> and any descendent elements 
-	 * @return void
+	 * 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode, array( AttributeNames::Algorithm => $this->algorithm ) );
+		$newElement = parent::generateXml( $parentNode, array( AttributeNames::Algorithm => $this->algorithm ), $insertAfter );
 	}
 
 	/**

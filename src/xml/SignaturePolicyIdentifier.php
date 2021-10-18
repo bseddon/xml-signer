@@ -93,14 +93,16 @@ class SignaturePolicyIdentifier extends XmlCore
 	}
 
 	/**
-	 * Generates Xml nodes for the instance.  
+	 * Generates Xml nodes for the instance.
+	 *
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 		$this->type->generateXml( $newElement );
 	}
 

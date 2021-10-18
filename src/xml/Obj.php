@@ -76,13 +76,15 @@ class Obj extends XmlCore
 
 	/**
 	 * Generate the Xml for the node
+	 *
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
 	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode, $attributes );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->childNodes )
 			foreach( $this->childNodes as $childNode )

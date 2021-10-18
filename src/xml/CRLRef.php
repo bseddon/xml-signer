@@ -97,14 +97,14 @@ class CRLRef extends XmlCore
 	/**
 	 * Generates Xml nodes for the instance.  
 	 *
-	 * @param \DOMElement|\DOMDocument $parentNode
-	 * @param string[] $namespaces
+	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
 	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode, array( AttributeNames::URI => $this->uri ) );
+		$newElement = parent::generateXml( $parentNode, array( AttributeNames::URI => $this->uri ), $insertAfter );
 
 		if ( $this->digestAlgAndValue )
 		{

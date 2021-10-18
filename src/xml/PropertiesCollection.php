@@ -54,7 +54,7 @@ abstract class PropertiesCollection extends XmlCore
 	 * Add a property to the properties collection 
 	 *
 	 * @param XmlCore $property
-	 * @return XmlCode
+	 * @return XmlCore
 	 */
 	public function addProperty( $property )
 	{
@@ -63,13 +63,37 @@ abstract class PropertiesCollection extends XmlCore
 	}
 
 	/**
-	 * Create &lt;properties> and any descendent elements 
-	 * @return void
+	 * Add a property to the properties collection 
+	 *
+	 * @param XmlCore $property
+	 * @param int $position
+	 * @return XmlCore
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function addPropertyAtPosition( $property, $position )
+	{
+		if ( ! count( $this->properties ) || $position >= count( $this->properties ) )
+		{
+			$this->addProperty( $property );
+		}
+		else
+		{
+			array_splice( $this->properties, $position, 0, array( $property ) ); // splice in at position $position
+		}
+		return $property;
+	}
+
+	/**
+	 * Create &lt;properties> and any descendent elements
+	 * 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
+	 */
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( ! $this->properties ) return false;
 

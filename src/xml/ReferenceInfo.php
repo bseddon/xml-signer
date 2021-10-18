@@ -48,13 +48,14 @@ class ReferenceInfo extends CertDigest
 	/**
 	 * Generate xml for the element and the attributes
 	 *
-	 * @param [type] $parentNode
-	 * @param array $attributes
-	 * @return void
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml($parentNode, $attributes = array())
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		parent::generateXml( $parentNode, array( AttributeNames::Uri => $this->uri ) );
+		parent::generateXml( $parentNode, array( AttributeNames::Uri => $this->uri ), $insertAfter );
 	}
 
 	/**

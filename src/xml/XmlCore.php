@@ -354,9 +354,10 @@ abstract class XmlCore
 	 * @param \DOMElement $parentNode
 	 * @param string[] $namespaces
 	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
 	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		/**
 		 * @var \DOMDocument $doc
@@ -389,7 +390,10 @@ abstract class XmlCore
 			$newElement->nodeValue = $value;
 		}
 
-		$parentNode->appendChild( $newElement );
+		if ( $insertAfter )
+			$parentNode->insertBefore( $insertAfter->nextElementSibling );
+		else
+			$parentNode->appendChild( $newElement );
 
 		$additionalNamespaces = array_diff_key( $this->namespaces, $namespaces );
 		foreach( $additionalNamespaces as $prefix => $namespaceURI )
@@ -403,6 +407,9 @@ abstract class XmlCore
 		}
 
 		// If the attributes array does not already contain @id the prepend it
+		if ( is_null( $attributes ) )
+			$attributes = array();
+
 		if ( ! is_null( $this->id ) && ! isset( $attributes[ AttributeNames::Id ] ) )
 		{
 			$attributes = array_merge( array( AttributeNames::Id => $this->id ), $attributes );

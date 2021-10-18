@@ -104,13 +104,15 @@ abstract class XAdESTimeStamp extends XmlCore
 
 	/**
 	 * Generate the XML for the element and descendents
+	 *
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
 	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->include )
 			$this->include->generateXml( $newElement );

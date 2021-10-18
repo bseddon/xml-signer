@@ -59,12 +59,13 @@ class CompleteCertificateRefs extends XmlCore implements UnsignedSignatureProper
 	 * Create &lt;CompleteCertificateRefs> and any descendent elements 
 	 * @param \DOMElement $parentNode
 	 * @param string[] $attributes
-	 * @return void
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
 	 */
-	public function generateXml( $parentNode, $attributes = array() )
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode );
+		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
 
 		if ( $this->certRefs )
 			$this->certRefs->generateXml( $newElement );
