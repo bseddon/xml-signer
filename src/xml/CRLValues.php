@@ -55,9 +55,9 @@ class CRLValues extends PropertiesCollection
 	 */
 	public function validateElement()
 	{
-		$encapsulatedCRLValues = $this->getPropertiesOfClass( EncapsulatedCRLValues::class );
+		$encapsulatedCRLValues = $this->getPropertiesOfClass( EncapsulatedCRLValue::class );
 
 		if ( count( $encapsulatedCRLValues ) != count( $this->properties  ) )
-			throw new \Exception("All <EncapsulatedCRLValues> children must of type EncapsulatedPKIDataType");
+			throw new \Exception("All <EncapsulatedCRLValues> children must of type EncapsulatedCRLValue");
 	}
 }
