@@ -35,6 +35,7 @@
 namespace lyquidity\xmldsig;
 
 use lyquidity\Asn1\Der\Decoder;
+use lyquidity\Asn1\Der\Encoder;
 use lyquidity\Asn1\Element\Sequence;
 use lyquidity\Asn1\UniversalTagID;
 use lyquidity\Asn1\Util\BigInteger;
@@ -55,6 +56,7 @@ use lyquidity\xmldsig\xml\DataObjectFormat;
 use lyquidity\xmldsig\xml\DigestMethod;
 use lyquidity\xmldsig\xml\DigestValue;
 use lyquidity\xmldsig\xml\ElementNames;
+use lyquidity\xmldsig\xml\EncapsulatedCRLValue;
 use lyquidity\xmldsig\xml\EncapsulatedOCSPValue;
 use lyquidity\xmldsig\xml\EncapsulatedPKIData;
 use lyquidity\xmldsig\xml\EncapsulatedX509Certificate;
@@ -77,10 +79,12 @@ use lyquidity\xmldsig\xml\SignerRole;
 use lyquidity\xmldsig\xml\SignerRoleV2;
 use lyquidity\xmldsig\xml\SigningCertificateV2;
 use lyquidity\xmldsig\xml\SigningTime;
+use lyquidity\xmldsig\xml\TimeStampValidationData;
 use lyquidity\xmldsig\xml\Transform;
 use lyquidity\xmldsig\xml\TransformXPathFilter2;
 use lyquidity\xmldsig\xml\UnsignedProperties;
 use lyquidity\xmldsig\xml\UnsignedSignatureProperties;
+use lyquidity\xmldsig\xml\UnsignedSignatureProperty;
 use lyquidity\xmldsig\xml\X509SerialNumber;
 use lyquidity\xmldsig\xml\XAdESTimeStamp;
 use lyquidity\xmldsig\xml\XmlCore;
@@ -102,6 +106,7 @@ class XAdES extends XMLSecurityDSig
 	 */
 	const NamespaceUrl2016 = "http://uri.etsi.org/01903/v1.3.2#";
 	const NamespaceUrl2003 = "http://uri.etsi.org/01903/v1.1.1#";
+	const NamespaceUrl1v41 = "http://uri.etsi.org/01903/v1.4.1#";
 
 	// XAdES allows for counter signature in which case this url should be included as the &lt;Reference> @Type
 	const counterSignatureTypeUrl = "http://uri.etsi.org/01903#CountersignedSignature";
@@ -430,6 +435,7 @@ class XAdES extends XMLSecurityDSig
 		$xpath = new \DOMXPath( $doc );
 		$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
 		$xpath->registerNamespace( 'xa', $this->currentNamespace );
+		$xpath->registerNamespace( 'xa141', self::NamespaceUrl1v41 );
 		$hasSignature = $xpath->query( '//ds:Signature' )->count() > 0;
 		if ( ! $xmlResource->detached && $hasSignature )
 		{
@@ -1543,7 +1549,7 @@ class XAdES extends XMLSecurityDSig
 
 		/** @var \lyquidity\xmldsig\xml\Signature */
 		$signature = Generic::fromNode( $signatureNode );
-		
+	
 		// Start with canonicalized references
 		$canonicalized = implode( '', $this->validateReference() );
 
@@ -1604,16 +1610,34 @@ class XAdES extends XMLSecurityDSig
 		$hasRevocationValues = false;
 		$hasAttrAuthoritiesCertValues = false;
 		$hasAttributeRevocationValues = false;
+		$timestamps = array();
+		$timestamp = null;
 
 		foreach( $unsignedSignatureProperties->properties ?? array() as $property )
 		{
 			/** @var XmlCore $property */
 			echo get_class( $property ) . "\n";
 
+			// If the previous node was a timestamp then check if the next node is a TimeStampValidationData instance
+			if ( $timestamp )
+			{
+				// If iy is, ignore it.  If its not, record the timestamp for processing
+				if ( ! ( $timestamp instanceof TimeStampValidationData ) )
+				{
+					$timestamps[] = $timestamp;					
+				}
+			
+				// Reset the timestamp flag
+				$timestamp = null;
+			}
+
 			if ( $property instanceof XAdESTimeStamp )
 			{
 				// Should add <TimeStampValidationData> to hold certificate values for the timestamp
-				// This element  MUST appear immediately after this timestamp element. See section 5.5.1
+				// This element MUST appear immediately after this timestamp element. See section 5.5.1
+
+				// Set the flag so a chack can be made on the next element to see if it is a TimeStampValidationData instance
+				$timestamp = $property;
 			}
 
 			/**
@@ -1672,6 +1696,17 @@ class XAdES extends XMLSecurityDSig
 			$canonicalized .= $this->canonicalizeData( $property->node, $this->canonicalMethod );			
 		}
 
+		if ( $timestamp )
+		{
+			$timestamps[] = $timestamp;
+			$timestamp = null;
+		}
+
+		if ( $timestamps )
+		{
+			$canonicalized .= $this->checkTimestamps( $timestamps, $unsignedSignatureProperties, $signatureNode, $caBundle );
+		}
+
 		if ( ! $hasCertificateValues || ! $hasRevocationValues )
 		{
 			$canonicalized .= $this->checkCertificateValues( $signatureNode, $unsignedSignatureProperties, $caBundle );
@@ -1716,44 +1751,150 @@ class XAdES extends XMLSecurityDSig
 			"{$signatureId}_{$propertyId}"
 		);
 
-		$timestamp->validateElement();
-
-		if ( ! $qp instanceof QualifyingProperties )
-		{
-			throw new XAdESException("Unable to find the <QualifyingProperties> element");
-		}
-
-		/** @var XmlCore */
-		$startPoint = null;
-		/** @var XmlCore */
-		$parent = null;
-
-		if ( ! $qp->unsignedProperties )
-		{
-			$parent = $qp;
-			$startPoint = new UnsignedProperties(
-				new UnsignedSignatureProperties(
-					$timestamp					
-				)
-			);
-		}
-		else if ( ! $qp->unsignedProperties->unsignedSignatureProperties )
-		{
-			$parent = $qp->unsignedProperties;
-			$startPoint = new UnsignedSignatureProperties(
-				$timestamp
-			);
-		}
-		else
-		{
-			$parent = $qp->unsignedProperties->unsignedSignatureProperties;
-			$startPoint = $timestamp;
-		}
-
-		$parent->validateElement();
+		$unsignedSignatureProperties->validateElement();
 
 		// OK, time to write the timestamp
-		$startPoint->generateXml( $parent->node );
+		$timestamp->generateXml( $unsignedSignatureProperties->node );
+	}
+
+	/**
+	 * Check the list timestamps found to get certificate details and OCSP or CRL information
+	 *
+	 * @param string[] $timestamps
+	 * @param UnsignedSignatureProperties $unsignedSignatureProperties
+	 * @param \DOMElement $signatureNode
+	 * @param string $caBundle
+	 * @return void
+	 */
+	private function checkTimestamps( $timestamps, $unsignedSignatureProperties, $signatureNode, $caBundle = null )
+	{
+		if ( ! $timestamps ) return;
+
+		$securityKey = $this->locateKey();
+		if ( ! $securityKey ) 
+		{
+			throw new XAdESException("We have no idea about the key");
+		}
+
+		XMLSecEnc::staticLocateKeyInfo( $securityKey, $signatureNode );
+
+		// Get the non-signing <KeyInfo> certificates
+		$existingCertificates = array_reduce( $securityKey->getX509CertificateKeys(), function( $carry, $key ) use( $securityKey )
+		{
+			$certificatePEM = $securityKey->getX509Certificate( $key );
+			$carry[] = $certificatePEM;
+			return $carry;
+		}, array() );
+
+		// Insert a TimeStampValidationData in the correct position.  If the properties start like this:
+		// 		CertificateValues
+		//		SignatureTimeStamp
+		//		CertificateValues
+		// It will end like:
+		//	 	CertificateValues
+		//		SignatureTimeStamp
+		//		TimeStampValidationData
+		//		CertificateValues
+
+		$canonicalized = "";
+
+		foreach( $timestamps as $timestamp )
+		{
+			/** @var XAdESTimeStamp $timestamp */
+			// Add an element directly after the timestamp
+			// Find this property in the list of UnsignedSignatureProperties
+			$position = 0;
+			foreach( $unsignedSignatureProperties->properties as $property )
+			{
+				// This MUST exist in the unsignedSignatureProperties because it was taken from the unsignedSignatureProperties
+				if ( $property === $timestamp ) break;
+				$position++;
+			}
+
+			$keyChain = array();
+			$missingCertificates = array();
+			$revocationValues = array(
+				'ocsp' => array(),
+				'crl' => array()
+			);
+
+			// Get the timestamp revocation information and any certificates not already recorded in KeyInfo
+			$subject = TSA::getSubjectCertificateFromDERBase64( $timestamp->encapsulatedTimeStamp->getValue() );
+			$subjectPEM = Ocsp::PEMize( ( new Encoder() )->encodeElement( $subject ) );
+			$this->verifyChain( $existingCertificates, $subjectPEM, $keyChain, $missingCertificates, $revocationValues, $caBundle );
+
+			// Create 
+			$missingCertificates = array_unique( $missingCertificates );
+			$certificateValues = null;
+
+			if ( $missingCertificates )
+			{	
+				$certificateValues = new CertificateValues();
+
+				// Add the certificate values
+				foreach( $missingCertificates as $certificate )
+				{
+					/** @var CertificateValues $certificateValues */
+					$certificateValues->addProperty( new EncapsulatedX509Certificate( base64_encode( $certificate ) ) );
+				}
+			}
+	
+			$revocationValues['ocsp'] = array_unique( $revocationValues['ocsp'] );
+			$revocationValues['crl'] = array_unique( $revocationValues['crl'] );
+			$values = null;
+
+			if ( $revocationValues['ocsp'] || $revocationValues['crl'] )
+			{
+				$values = new RevocationValues();
+	
+				// Add the revocation values
+				if ( $revocationValues['ocsp'] )
+				{
+					/** @var RevocationValues $values */
+					$ocspValues = $values->ocspValues;
+					if ( ! $ocspValues )
+					{
+						$ocspValues = $values->ocspValues = new OCSPValues();
+					}
+		
+					foreach( $revocationValues['ocsp'] as $ocspValue )
+					{
+						/** @var OCSPValues $ocspValues */
+						$ocspValues->addProperty( new EncapsulatedOCSPValue( base64_encode( $ocspValue ) ) );
+					}
+				}
+	
+				// Add the revocation values
+				if ( $revocationValues['crl'] )
+				{
+					/** @var RevocationValues $values */
+					$crlValues = $values->crlValues;
+					if ( ! $crlValues )
+					{
+						$crlValues = $values->crlValues = new CRLValues();
+					}
+		
+					foreach( $revocationValues['crl'] as $crlValue )
+					{
+						/** @var CRLValues $crlValues */
+						$crlValues->addProperty( new EncapsulatedCRLValue( base64_encode( $crlValue ) ) );
+					}
+
+					$crlValues->validateElement();
+				}
+			}	
+
+			if ( $certificateValues || $values )
+			{
+				// Add a new property at position $position+1
+				$tsvd = $unsignedSignatureProperties->addPropertyAtPosition( new TimeStampValidationData( $certificateValues, $values ), $position + 1 );
+				$tsvd->generateXml( $unsignedSignatureProperties->node, null, $timestamp->node );
+
+				$canonicalized .= $this->canonicalizeData( $tsvd->node, $this->canonicalMethod );
+			}
+		}
+
+		return $canonicalized;
 	}
 
 	/**
@@ -1905,7 +2046,6 @@ class XAdES extends XMLSecurityDSig
 				if ( ! $ocspValues )
 				{
 					$ocspValues = $values->ocspValues = new OCSPValues();
-					// $ocspValues->generateXml( $values->node );
 				}
 	
 				foreach( $revocationValues['ocsp'] as $ocspValue )
@@ -2026,22 +2166,38 @@ class XAdES extends XMLSecurityDSig
 	{
 		if ( $ocspResponderUrl )
 		{
-			list( $responseBytes, $response, $signerCerts ) = Ocsp::sendRequestRaw( $certificate, null, $caBundle );
-			foreach( $signerCerts as $signerCert )
+			try
 			{
-				$missingCertificates[] = $signerCert;
+				list( $responseBytes, $response, $signerCerts ) = Ocsp::sendRequestRaw( $certificate, null, $caBundle );
+				foreach( $signerCerts as $signerCert )
+				{
+					$missingCertificates[] = $signerCert;
+				}
+				$revocationValues['ocsp'][] = $responseBytes;
+
+				return;
 			}
-			$revocationValues['ocsp'][] = $responseBytes;
+			catch( \Exception $ex )
+			{
+				error_log("Unable to access OCSP response for $ocspResponderUrl: " . $ex->getMessage() );
+				error_log("Trying CRL");
+			}
 		}
-		else
+
+		try
 		{
 			$info = new CertificateInfo();
 			$crlUrl = $info->extractCRLUrl( $certificate );
 			if ( $crlUrl )
 			{
 				$responseBytes = file_get_contents( $crlUrl );
-				$revocationValues['crl'][] = $responseBytes;
+				if ( $responseBytes )
+					$revocationValues['crl'][] = $responseBytes;
 			}
+		}
+		catch( \Exception $ex )
+		{
+			error_log( "Unable to acccess the CRL for $crlUrl" );
 		}
 	}
 
