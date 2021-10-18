@@ -391,7 +391,7 @@ abstract class XmlCore
 		}
 
 		if ( $insertAfter )
-			$parentNode->insertBefore( $insertAfter->nextElementSibling );
+			$parentNode->insertBefore( $newElement, $insertAfter->nextSibling );
 		else
 			$parentNode->appendChild( $newElement );
 
