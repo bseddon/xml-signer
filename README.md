@@ -46,7 +46,7 @@ Add LTA support to a signature using the static function below.  Note that LTA i
 
 ```
 
-@sangar82 has been able to use the [EU commission XAdES demo site](https://ec.europa.eu/cefdigital/DSS/webapp-demo/validation) to confirm the signature created reaches the [LTA level](https://github.com/bseddon/xml-signer/issues/7#issuecomment-946998079).
+@sangar82 has been able to use the [EU commission XAdES demo site](https://ec.europa.eu/cefdigital/DSS/webapp-demo/validation) to confirm independently the signature created reaches the [LTA level](https://github.com/bseddon/xml-signer/issues/7#issuecomment-946998079).
 
 ## Limitations
 
