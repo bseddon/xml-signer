@@ -630,8 +630,9 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
-	 * Create a signature for a resource
-	 *
+	 * Create a signature for a resource.  This is used to create 
+	 * a signature for a remote application like a browser to sign.
+	 * 
 	 * @param InputResourceInfo|string $xmlResource
 	 * @param CertificateResourceInfo|string $certificateResource
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
