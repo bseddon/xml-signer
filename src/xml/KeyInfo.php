@@ -169,7 +169,7 @@ abstract class KeyInfoType extends XmlCore
 	 */
 	public static function fromName( $name )
 	{
-		$classname = dirname( self::class ) . "\\$name";
+		$classname = str_replace( '/', '\\', dirname( str_replace( '\\', '/', self::class ) ) ) . "\\$name";
 		if ( ! class_exists( $classname, true ) )
 		{
 			throw new \Exception("The element <$name> is not supported as a child of <KeyInfo>");

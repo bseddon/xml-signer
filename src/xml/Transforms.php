@@ -127,7 +127,7 @@ class Transforms extends XmlCore
 			if ( ! $attr )
 				throw new \Exception("There is no @Algorithm");
 
-			$classname = dirname( get_class( $this ) ) . '\\' . Transform::transformMap[ $attr->value ] ?? ElementNames::Transform;
+			$classname = str_replace( '/', '\\', dirname( str_replace( '\\', '/', get_class( $this ) ) ) ) . '\\' . Transform::transformMap[ $attr->value ] ?? ElementNames::Transform;
 			$transform = new $classname();
 			$transform->algorithm = $attr->value;
 			$transform->loadInnerXml( $node );
