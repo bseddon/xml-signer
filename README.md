@@ -20,9 +20,19 @@ There are two aspects to the XAdES support.  One is a set of classes that cover 
 
 However it is likely users will not have an encyclopaedic knowledge of XAdES.  So the other aspect is to allow less expert users provide a minimum amount of information and use functions to generate XML signatures, request and process time stamps and add counter signatures.  At the moment the handy functions do not cover the whole XAdES specification although they do allow use of the key XAdES features such as policy selection, commitment type indication, user roles, timestamps and counter signatures.  Signatures can be embedded in a source document or they can be saved as detached files.  A function is also available to validate existing signatures.
 
+## LT and LTA support
+
+Long-term (LT) and Long-term archive (LTA) are profiles defined in the [XAdES specificiations](https://www.etsi.org/deliver/etsi_en/319100_319199/31913201/01.01.01_60/en_31913201v010101p.pdf) that are intended to enable someone to verify a signature long after the signing certificate has expired. Table 2 in section 6.3 of the defines the elements to be included within the signature for a signature to be considered long term.
+
+LT support comes from the addition of &lt;CertificateValues>,&lt;RevocationValues> and &lt;TimeStampValidationData> elements (see sections 5.4.1, 5.4.2 5.5.1 of the XAdES specification.  LTA support comes from the addition of the &lt;ArchiveTimeStamp> elements (see section 5.5.2).
+
+Using the static XAdES::archiveTimestamp() the code will add these elements and populate them with relevant data.  Note that this support is experimental and at the moment will not accommodate all LTA scenarios.  For example, at the moment it will not handle the case of an archive timestamp being added to a signature that already includes an archive timestamp. It is also unlikely to generate a valid signature if the signature includes a counter signature.
+
+LT and LTA support is also more complext and so more likely to fail.  Unlike a regular signature which can be generated from only information available locally, LT signatures must retrieve  certificates all the way to the trust anchor (root certificate authority) of the signing certificate.  It must also retrieve revocation information for the signing signature and then retrieve certificates used to sign the revocation information.  This complexity also means my comprehension of the specificiation may be incorrect or, at least, not precise.
+
 ## Limitations
 
-There are 140+ different elements defined by XAdES.  Although support exists for every one, the level of testing for each is not the same. This is particularly true of those in the &lt;UnsignedProperties> area.  Many of these elements are there to support non-repudiation over a long period of time.  They exist to cover cases such as validating a signature long after the certificate used to sign a document has expired.  I don't have an immediate requirement to use these features, nor do I have access to examples of the use of some elements so my ability to test them is limited. If you have a requirement to use these features of the specification and, in particular, to use what the specification refers to as archiving, and have a example cases, please get in touch as it will be good to expand testing.
+There are 140+ different elements defined by XAdES.  Although support exists to create every one, the level of testing for each is not the same. This is particularly true of those in the &lt;UnsignedProperties> area.
 
 Another limitation is that the only mechanism available to sign a signature is by using X509 certificates in the context of the public key infrastructure (PKI). These are the same type of certificates used by web sites and browers though usually with different key use attributes.
 
