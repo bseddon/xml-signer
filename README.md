@@ -28,7 +28,7 @@ LT support comes from the addition of &lt;CertificateValues>,&lt;RevocationValue
 
 Using the static XAdES::archiveTimestamp() the code will add these elements and populate them with relevant data.  Note that this support is experimental and at the moment will not accommodate all LTA scenarios.  For example, at the moment it will not handle the case of an archive timestamp being added to a signature that already includes an archive timestamp. It is also unlikely to generate a valid signature if the signature includes a counter signature.
 
-LT and LTA support is also more complext and so more likely to fail.  Unlike a regular signature which can be generated from only information available locally, LT signatures must retrieve  certificates all the way to the trust anchor (root certificate authority) of the signing certificate.  It must also retrieve revocation information for the signing signature and then retrieve certificates used to sign the revocation information.  This complexity also means my comprehension of the specificiation may be incorrect or, at least, not precise.
+LT and LTA support is also more complex and so more likely to fail.  Unlike a regular signature which can be generated from only information available locally, LT signatures must retrieve  certificates all the way to the trust anchor (root certificate authority) of the signing certificate.  It must also retrieve revocation information for the signing signature and then retrieve certificates used to sign the revocation information.  This complexity also means my comprehension of the specificiation may be incorrect or, at least, not precise.
 
 ## Limitations
 
