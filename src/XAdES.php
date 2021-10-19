@@ -1616,7 +1616,7 @@ class XAdES extends XMLSecurityDSig
 		foreach( $unsignedSignatureProperties->properties ?? array() as $property )
 		{
 			/** @var XmlCore $property */
-			echo get_class( $property ) . "\n";
+			// echo get_class( $property ) . "\n";
 
 			// If the previous node was a timestamp then check if the next node is a TimeStampValidationData instance
 			if ( $timestamp )
@@ -1733,7 +1733,7 @@ class XAdES extends XMLSecurityDSig
 			if ( $childNode instanceof QualifyingProperties ) continue;
 
 			/** @var XmlCore $childNode */
-			echo get_class( $childNode ) . "\n";
+			// echo get_class( $childNode ) . "\n";
 
 			$canonicalized .= $this->canonicalizeData( $childNode->node, $this->canonicalMethod );
 		}
