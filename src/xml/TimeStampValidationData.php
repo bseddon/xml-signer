@@ -56,8 +56,10 @@ class TimeStampValidationData extends XmlCore implements UnsignedSignatureProper
 	 * Create an instance of &lt;TimeStampValidationData> and pass in an instance of &lt;CertificateValues> and &lt;RevocationValues>
 	 * @param CertificateValues $certificateValues
 	 * @param RevocationValues $revocationValues
+	 * @param string $uri
+	 * @param string $id
 	 */
-	public function __construct( $certificateValues = null, $revocationValues = null, $uri = null )
+	public function __construct( $certificateValues = null, $revocationValues = null, $uri = null, $id = null )
 	{
 		$this->defaultNamespace = XAdES::NamespaceUrl1v41;
 		$this->prefix = 'xa141';
@@ -66,6 +68,7 @@ class TimeStampValidationData extends XmlCore implements UnsignedSignatureProper
 		$this->revocationValues = $revocationValues;
 
 		$this->uri = $uri;
+		$this->id = $id;
 	}
 
 	/**
