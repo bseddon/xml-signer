@@ -47,17 +47,25 @@ class TimeStampValidationData extends XmlCore implements UnsignedSignatureProper
 	public $revocationValues = null;
 
 	/**
+	 * The value for @URI
+	 * @var string 
+	 */
+	public $uri;
+
+	/**
 	 * Create an instance of &lt;TimeStampValidationData> and pass in an instance of &lt;CertificateValues> and &lt;RevocationValues>
 	 * @param CertificateValues $certificateValues
 	 * @param RevocationValues $revocationValues
 	 */
-	public function __construct( $certificateValues = null, $revocationValues = null )
+	public function __construct( $certificateValues = null, $revocationValues = null, $uri = null )
 	{
 		$this->defaultNamespace = XAdES::NamespaceUrl1v41;
 		$this->prefix = 'xa141';
 
 		$this->certificateValues = $certificateValues;
 		$this->revocationValues = $revocationValues;
+
+		$this->uri = $uri;
 	}
 
 	/**
@@ -80,7 +88,7 @@ class TimeStampValidationData extends XmlCore implements UnsignedSignatureProper
 	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
 	{
 		// Create a node for this element
-		$newElement = parent::generateXml( $parentNode, $attributes, $insertAfter );
+		$newElement = parent::generateXml( $parentNode, is_null( $this->uri ) ? null : array( AttributeNames::URI => $this->uri ), $insertAfter );
 
 		if ( $this->certificateValues )
 			$this->certificateValues->generateXml( $newElement );
@@ -100,7 +108,12 @@ class TimeStampValidationData extends XmlCore implements UnsignedSignatureProper
 	public function loadInnerXml($node)
 	{
 		parent::loadInnerXml( $node );
-		// No attributes for this element
+
+		$attr = $node->getAttributeNode( AttributeNames::Uri );
+		if ( $attr )
+		{
+			$this->uri = $attr->value;
+		}
 
 		// Look for elements with the tag &lt;CertificateValues> or  &lt;RevocationValues>
 		foreach( $node->childNodes as $childNode )
