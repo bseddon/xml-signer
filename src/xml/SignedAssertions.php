@@ -69,5 +69,5 @@ class SignedAssertions extends PropertiesCollection
 			throw new \Exception("There must be one or more SignedAssertion if <SignedAssertions> is used");
 
 		if ( count( $signedAssertion ) != count( $this->properties  ) )
-			throw new \Exception("All <SignedAssertions> children must of type SignedAssertion");	}
+			throw new \Exception("All <SignedAssertions> children must be of type SignedAssertion");	}
 }

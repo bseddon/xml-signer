@@ -96,7 +96,7 @@ class Transforms extends XmlCore
 		foreach ( $this->transforms as $transform )
 		{
 			if ( ! $transform instanceof Transform )
-				throw new \Exception("All <Transforms> children must of type Transform");
+				throw new \Exception("All <Transforms> children must be of type Transform");
 
 			$transform->validateElement();
 		}

@@ -81,6 +81,6 @@ class SigPolicyQualifiers extends PropertiesCollection
 		$sigPolicyQualifiers = $this->getPropertiesOfClass( SigPolicyQualifier::class );
 
 		if ( count( $sigPolicyQualifiers ) != count( $this->properties  ) )
-			throw new \Exception("All <SigPolicyQualifiers> children must of type SigPolicyQualifier");
+			throw new \Exception("All <SigPolicyQualifiers> children must be of type SigPolicyQualifier");
 	}
 }

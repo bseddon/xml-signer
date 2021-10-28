@@ -58,6 +58,6 @@ class CRLValues extends PropertiesCollection
 		$encapsulatedCRLValues = $this->getPropertiesOfClass( EncapsulatedCRLValue::class );
 
 		if ( count( $encapsulatedCRLValues ) != count( $this->properties  ) )
-			throw new \Exception("All <EncapsulatedCRLValues> children must of type EncapsulatedCRLValue");
+			throw new \Exception("All <EncapsulatedCRLValues> children must be of type EncapsulatedCRLValue");
 	}
 }

@@ -62,6 +62,6 @@ class OtherRefs extends PropertiesCollection
 			throw new \Exception("There must be one or more Other ref if <OtherRefs> is used");
 
 		if ( count( $otherRefs ) != count( $this->properties  ) )
-			throw new \Exception("All <OtherRefs> children must of type OtherRef");
+			throw new \Exception("All <OtherRefs> children must be of type OtherRef");
 	}
 }

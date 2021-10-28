@@ -60,7 +60,7 @@ class ClaimedRoles extends PropertiesCollection
 			throw new \Exception("There must be one or more claimed roles if a <ClaimedRoles> is used");
 
 		if ( count( $claimedRoles ) != count( $this->properties  ) )
-			throw new \Exception("All <ClaimedRoles> children must of type ClaimedRoles");
+			throw new \Exception("All <ClaimedRoles> children must be of type ClaimedRoles");
 	}
 
 }

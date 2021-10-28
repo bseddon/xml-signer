@@ -59,6 +59,6 @@ class OCSPRefs extends PropertiesCollection
 			throw new \Exception("There must be one or more OCSP ref if <OCSPRefs> is used");
 
 		if ( count( $ocspRefs ) != count( $this->properties  ) )
-			throw new \Exception("All <OCSPRefs> children must of type OCSPRef");
+			throw new \Exception("All <OCSPRefs> children must be of type OCSPRef");
 	}
 }

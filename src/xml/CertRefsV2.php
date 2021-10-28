@@ -72,6 +72,6 @@ class CertRefsV2 extends PropertiesCollection
 			throw new \Exception("There must be one or more <Cert> instances if a <CertRefs> is used");
 
 		if ( count( $certRefs ) != count( $this->properties  ) )
-			throw new \Exception("All <CertRefs> children must of type Cert");
+			throw new \Exception("All <CertRefs> children must be of type Cert");
 	}
 }

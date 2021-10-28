@@ -59,6 +59,6 @@ class DocumentationReferences extends PropertiesCollection
 			throw new \Exception("There must be one or more Documentation Reference if <DocumentationReferences> is used");
 
 		if ( count( $documentationReferences ) != count( $this->properties  ) )
-			throw new \Exception("All <DocumentationReferences> children must of type DocumentationReference");
+			throw new \Exception("All <DocumentationReferences> children must be of type DocumentationReference");
 	}
 }

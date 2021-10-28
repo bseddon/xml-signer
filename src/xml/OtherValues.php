@@ -70,6 +70,6 @@ class OtherValues extends PropertiesCollection
 			throw new \Exception("There must be one or more OtherValue if <OtherValues> is used");
 
 		if ( count( $otherValues ) != count( $this->properties  ) )
-			throw new \Exception("All <OtherValues> children must of type OtherValue");
+			throw new \Exception("All <OtherValues> children must be of type OtherValue");
 	}
 }

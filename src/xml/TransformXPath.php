@@ -120,7 +120,7 @@ class TransformXPath extends Transform
 		foreach ( $this->xpaths as $xpath )
 		{
 			if ( ! $xpath instanceof XPathFilter )
-				throw new \Exception("All <XPath> children must of type XPath");
+				throw new \Exception("All <XPath> children must be of type XPath");
 
 			$xpath->validateElement();
 		}

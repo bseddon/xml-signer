@@ -63,6 +63,6 @@ class OCSPValues extends PropertiesCollection
 			throw new \Exception("There must be one or more EncapsulatedOCSPValue if <OCSPValues> is used");
 
 		if ( count( $ocspValues ) != count( $this->properties  ) )
-			throw new \Exception("All <OCSPValues> children must of type EncapsulatedOCSPValue");
+			throw new \Exception("All <OCSPValues> children must be of type EncapsulatedOCSPValue");
 	}
 }

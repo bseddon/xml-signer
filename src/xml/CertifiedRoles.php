@@ -70,6 +70,6 @@ class CertifiedRoles extends PropertiesCollection
 			throw new \Exception("There must be one or more certified roles if a <CertifiedRoles> is used");
 
 		if ( count( $certifiedRoles ) != count( $this->properties  ) )
-			throw new \Exception("All <CertifiedRoles> children must of type CertifiedRole");
+			throw new \Exception("All <CertifiedRoles> children must be of type CertifiedRole");
 	}
 }

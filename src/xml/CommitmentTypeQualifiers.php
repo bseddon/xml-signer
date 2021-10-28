@@ -57,7 +57,7 @@ class CommitmentTypeQualifiers extends PropertiesCollection
 		$commitmentTypeQualifiers = $this->getPropertiesOfClass( CommitmentTypeQualifier::class );
 
 		if ( count( $commitmentTypeQualifiers ) != count( $this->properties  ) )
-			throw new \Exception("All <CommitmentTypeQualifiers> children must of type CommitmentTypeQualifier");
+			throw new \Exception("All <CommitmentTypeQualifiers> children must be of type CommitmentTypeQualifier");
 	}
 
 }
