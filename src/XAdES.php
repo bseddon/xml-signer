@@ -123,7 +123,7 @@ class XAdES extends XMLSecurityDSig
 	const SignatureFilename = "signature.xml";
 
 	// All the XPath queries assume ds=XMLSecurityDSig::XMLDSIGNS and xa=self::NamespaceUrl
-	const unsignedPropertiesQuery = "/ds:Signature/ds:Object/xa:QualifyingProperties/xa:unsignedProperties[@Id=\"" . self::UnsignedPropertiesId . "\"]";
+	// const unsignedPropertiesQuery = "/ds:Signature/ds:Object/xa:QualifyingProperties/xa:unsignedProperties[@Id=\"" . self::UnsignedPropertiesId . "\"]";
 
 	/**
 	 * Defines the xades namespace to use
@@ -632,7 +632,7 @@ class XAdES extends XMLSecurityDSig
 	/**
 	 * Create a signature for a resource.  This is used to create 
 	 * a signature for a remote application like a browser to sign.
-	 * 
+	 *
 	 * @param InputResourceInfo|string $xmlResource
 	 * @param CertificateResourceInfo|string $certificateResource
 	 * @param SignatureProductionPlace|SignatureProductionPlaceV2 $signatureProductionPlace
@@ -1129,6 +1129,13 @@ class XAdES extends XMLSecurityDSig
 							"using information in the signing certificate." );
 					}
 					$serialNumber = $certificateInfo->extractSerialNumberAsInteger( $issuerCertificate, true );
+					$serialNumber = is_numeric( $serialNumber )
+						? $serialNumber
+						: (
+							  $serialNumber instanceof BigInteger
+							  	  ? $serialNumber->base10()
+								  : strval( $serialNumber->getValue() )
+						  );
 				}
 
 				$cert = $signedProperties->getObjectFromPath( 
