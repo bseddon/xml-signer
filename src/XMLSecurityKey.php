@@ -322,6 +322,10 @@ class XMLSecurityKey
     public function getCertificateData( $index = 0 )
     {
         $loader = new \lyquidity\OCSP\CertificateLoader();
+        if ( ! isset( $this->x509Certificates[ $index ] ) )
+        {
+            return array();
+        }
         $cert = $loader->fromString( $this->x509Certificates[ $index ] );
         $info = new \lyquidity\OCSP\CertificateInfo();
 
