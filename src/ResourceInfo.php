@@ -126,7 +126,7 @@ abstract class ResourceInfo
 
 	/**
 	 * The resource.  Might be a path to a file or a string containing a binary encoded resource.
-	 * @var string
+	 * @var string|\DOMDocument
 	 */
 	public $resource = null;
 
