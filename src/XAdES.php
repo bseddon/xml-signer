@@ -408,11 +408,23 @@ class XAdES extends XMLSecurityDSig
 		{
 			$doc = $xmlResource->resource;
 		}
-		else if ( $xmlResource->isString() || $xmlResource->isURL() )
+		else if ( $xmlResource->isURL() )
 		{
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
+			if ( $doc->load( $xmlResource->resource ) === false )
+			{
+				throw new XAdESException("Unable to load XML provided via a URL");
+			}
+		}
+		else if ( $xmlResource->isString() )
+		{
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			if ( $doc->loadXML( $xmlResource->resource ) === false )
+			{
+				throw new XAdESException("Unable to load XML provided as a string");
+			}
 		}
 		else
 		{
@@ -909,7 +921,10 @@ class XAdES extends XMLSecurityDSig
 								? $this->fileBeingSigned->resource->baseURI
 								: $this->fileBeingSigned->saveFilename
 						  ) 
-						: $this->fileBeingSigned->resource 
+						: ( $this->fileBeingSigned->isString()
+								? $this->fileBeingSigned->saveFilename
+								: $this->fileBeingSigned->resource 
+						  )
 					  ),
 				null, // ObjectIdentifier
 				'text/xml', // MimeType
