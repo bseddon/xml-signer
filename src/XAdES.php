@@ -408,23 +408,11 @@ class XAdES extends XMLSecurityDSig
 		{
 			$doc = $xmlResource->resource;
 		}
-		else if ( $xmlResource->isURL() )
+		else if ( $xmlResource->isString() || $xmlResource->isURL() )
 		{
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			if ( $doc->load( $xmlResource->resource ) === false )
-			{
-				throw new XAdESException("Unable to load XML provided via a URL");
-			}
-		}
-		else if ( $xmlResource->isString() )
-		{
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			if ( $doc->loadXML( $xmlResource->resource ) === false )
-			{
-				throw new XAdESException("Unable to load XML provided as a string");
-			}
+			$doc->load( $xmlResource->resource );
 		}
 		else
 		{
@@ -696,11 +684,23 @@ class XAdES extends XMLSecurityDSig
 		{
 			$doc = $xmlResource->resource;
 		}
-		else if ( $xmlResource->isString() || $xmlResource->isURL() )
+		else if ( $xmlResource->isURL() )
 		{
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
+			if ( ! $doc->load( $xmlResource->resource ) )
+			{
+				throw new XAdESException( "URL does not reference a valid XML document" );
+			}
+		}
+		else if ( $xmlResource->isString() )
+		{
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			if ( ! $doc->loadXML( $xmlResource->resource ) )
+			{
+				throw new XAdESException( "Unable to load XML string" );
+			}
 		}
 		else
 		{
@@ -914,18 +914,7 @@ class XAdES extends XMLSecurityDSig
 	{
 		$sdop = new SignedDataObjectProperties(
 			new DataObjectFormat(
-				$this->fileBeingSigned->isFile()  // File reference
-					? basename( $this->fileBeingSigned->resource ) 
-					: ( $this->fileBeingSigned->isXmlDocument() 
-						? ( $this->fileBeingSigned->resource->baseURI
-								? $this->fileBeingSigned->resource->baseURI
-								: $this->fileBeingSigned->saveFilename
-						  ) 
-						: ( $this->fileBeingSigned->isString()
-								? $this->fileBeingSigned->saveFilename
-								: $this->fileBeingSigned->resource 
-						  )
-					  ),
+				$this->fileBeingSigned->isFile() ? basename( $this->fileBeingSigned->resource ) : $this->fileBeingSigned->resource, // File reference
 				null, // ObjectIdentifier
 				'text/xml', // MimeType
 				null, // Encoding
