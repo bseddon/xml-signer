@@ -914,7 +914,18 @@ class XAdES extends XMLSecurityDSig
 	{
 		$sdop = new SignedDataObjectProperties(
 			new DataObjectFormat(
-				$this->fileBeingSigned->isFile() ? basename( $this->fileBeingSigned->resource ) : $this->fileBeingSigned->resource, // File reference
+				$this->fileBeingSigned->isFile()  // File reference
+					? basename( $this->fileBeingSigned->resource ) 
+					: ( $this->fileBeingSigned->isXmlDocument() 
+						? ( $this->fileBeingSigned->resource->baseURI
+								? $this->fileBeingSigned->resource->baseURI
+								: $this->fileBeingSigned->saveFilename
+						) 
+						: ( $this->fileBeingSigned->isString()
+								? $this->fileBeingSigned->saveFilename
+								: $this->fileBeingSigned->resource 
+						)
+					),
 				null, // ObjectIdentifier
 				'text/xml', // MimeType
 				null, // Encoding
