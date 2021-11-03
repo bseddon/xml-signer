@@ -68,6 +68,11 @@ class InputResourceInfo extends BaseInputResourceInfo
 		$this->transforms = $transforms;
 		$this->detached = $detached;
 		$this->signatureId = $signatureId;
+
+		if ( ! $this->isFile() ) return;
+
+		if ( ! $this->saveLocation ) $this->saveLocation = dirname( $this->resource );
+		if ( ! $this->saveFilename ) $this->saveFilename = basename( $this->resource );
 	}
 
 	/**
