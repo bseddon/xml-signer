@@ -332,10 +332,15 @@ class XAdES extends XMLSecurityDSig
 			throw new XAdESException( "The resource supplied representing the document to be signed is not valid." );
 		}
 
+		$signatureId = $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId;
 		$instance = new static();
-		$instance->$timestampMethod( $doc, $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL, $caBundle );
+		$instance->signatureId = $signatureId;
+		$instance->$timestampMethod( $doc, $signatureId, XMLSecurityDSig::generateGUID(''), $tsaURL, $caBundle );
 
-		$doc->save( $instance->getSignatureFilename( $xmlResource->saveLocation, $xmlResource->saveFilename ), LIBXML_NOEMPTYTAG );
+		if ( ! $doc->save( $instance->getSignatureFilename( $xmlResource->saveLocation, $xmlResource->saveFilename ), LIBXML_NOEMPTYTAG ) )
+		{
+			throw new XAdESException( sprintf( "Unable to save the %s ", $timestampMethod ) );
+		}
 
 		return $instance;
 	}
@@ -1481,7 +1486,9 @@ class XAdES extends XMLSecurityDSig
 		// function can be called independently of creating a new signature.
 		$xpath = new \DOMXPath( $doc );
         $xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
-        $nodes = $xpath->query( "//ds:Signature[\"@Id={$this->signatureId}\"]" );
+        $nodes = $this->signatureId
+			? $xpath->query( "//ds:Signature[@Id=\"{$this->signatureId}\"]" )
+			: $xpath->query( "//ds:Signature" );
 		if ( ! $nodes || ! $nodes->count() )
 		{
 			throw new XAdESException( "A timestamp cannot be created because there is no existng signature with @Id '$signatureId'" );
