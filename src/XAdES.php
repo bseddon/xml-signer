@@ -4,27 +4,27 @@
  * Copyright (c) 2021 and later years, Bill Seddon <bill.seddon@lyquidity.com>.
  * All rights reserved.
  *
- * MIT License 
- * 
+ * MIT License
+ *
  * Allows a document to be signed using one of the XAdES forms up to XAdES-T.
  * https://www.w3.org/TR/XAdES/
- * 
- * Builds on XMLSecurityDSig to sign and verify Xml documents using the XAdES 
- * extensions which take it into the domain of non-repudiation by defining XML 
- * formats for advanced electronic signatures that remain valid over long periods 
+ *
+ * Builds on XMLSecurityDSig to sign and verify Xml documents using the XAdES
+ * extensions which take it into the domain of non-repudiation by defining XML
+ * formats for advanced electronic signatures that remain valid over long periods
  * and are compliant with the European "Directive 1999/93/EC.
- * 
+ *
  * The XAdES support distinguishes two types of signing action:
  * 	1) The creation of an initial signature complete will policy and commitment details
  * 	2) Updates to add features like a timestamp and counter signatures.
- * 
+ *
  * If a document is signed second and subsequent times and a set XAdES signed properties
  * already exist then an additional individual signature covering the existing properties.
- * 
+ *
  * If the action is to update an existing signature then second and subsequent signatures
  * will be counter-signatures. In this case the signer is able to select the unique id
  * of the signature their counter-signature will cover.
- * 
+ *
  * The caller has two ways to create the properties to be signed in the first place.
  * The first is to call a set of functions.  The other is similar in style to xadesjs
  * where a nested array of properties can be passed to the sign function and these
@@ -139,7 +139,7 @@ class XAdES extends XMLSecurityDSig
 
 	/**
 	 * Create a signature for a resource
-	 * 
+	 *
 	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
 	 *
 	 * @param InputResourceInfo|string $xmlResource
@@ -152,7 +152,12 @@ class XAdES extends XMLSecurityDSig
 	 */
 	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
-		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		if ($xmlResource instanceof InputResourceInfo && !$xmlResource->detached) {
+			$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId, $xmlResource );
+		} else {
+			$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		}
+
 		if ( is_array( $options ) )
 		{
 			$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
@@ -173,7 +178,7 @@ class XAdES extends XMLSecurityDSig
 	 * Create a signature for a resource but without the SignatureValue element
 	 * The canonicalized SignedInfo will be returned as a string for signing by
 	 * a third party.
-	 * 
+	 *
 	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
 	 *
 	 * @param InputResourceInfo|string $xmlResource
@@ -195,7 +200,7 @@ class XAdES extends XMLSecurityDSig
 
 	/**
 	 * Extends the core XmlDSig verification to also verify &lt;Object>/&lt;QualifyingProperties>/&lt;SignedProperties>
-	 * 
+	 *
 	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
 	 *
 	 * @param string $signatureFile This might be a standalone signature file
@@ -213,7 +218,7 @@ class XAdES extends XMLSecurityDSig
 	 * Add a counter signature to an exising signature
 	 *
 	 * This is a convenience function.  More control over the signature creation can be achieved by creating the XAdES instance directly
-	 * 
+	 *
 	 * @param SignedDocumentResourceInfo $xmlResource
 	 * @param CertificateResourceInfo $certificateResource
 	 * @param KeyResourceInfo $keyResource
@@ -306,31 +311,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		// Load the existing document containing the signature
-		if ( $xmlResource->isFile() )
-		{
-			if ( ! file_exists( $xmlResource->resource ) )
-			{
-				throw new XAdESException( "XML file does not exist" );
-			}
-	
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
-		}
-		else if ( $xmlResource->isXmlDocument() )
-		{
-			$doc = $xmlResource->resource;
-		}
-		else if ( $xmlResource->isString() || $xmlResource->isURL() )
-		{
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
-		}
-		else
-		{
-			throw new XAdESException( "The resource supplied representing the document to be signed is not valid." );
-		}
+		$doc = $xmlResource->generateDomDocument();
 
 		$signatureId = $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId;
 		$instance = new static();
@@ -404,7 +385,7 @@ class XAdES extends XMLSecurityDSig
 			{
 				throw new XAdESException( "XML file does not exist" );
 			}
-	
+
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
 			$doc->load( $xmlResource->resource );
@@ -439,7 +420,7 @@ class XAdES extends XMLSecurityDSig
 		if ( ! $xmlResource->detached )
 		if ( $xmlResource->isXmlDocument() || $xmlResource->isString() || $xmlResource->isURL() )
 		{
-			// When the source is a string or url or a DOM document and the signature is not 
+			// When the source is a string or url or a DOM document and the signature is not
 			// detatched then there must be a location and file name defined
 			if ( ! $xmlResource->saveLocation || ! $xmlResource->saveFilename )
 			{
@@ -459,25 +440,25 @@ class XAdES extends XMLSecurityDSig
 			throw new XAdESException("The input document already contains a signature.  If you want additional indpendent signatures create a detatched signature instead.");
 		}
 		unset( $xpath );
-		
+
 		$this->setCanonicalMethod( $canonicalizationMethod ? $canonicalizationMethod : self::C14N );
 
-		// Create a reference id to use 
+		// Create a reference id to use
 		// $referenceId = 'xmldsig-ref0'; // XMLSecurityDSig::generateGUID('xades-');
 		$referenceId = XMLSecurityDSig::generateGUID('xmldsig-');
 
 		// Create a Qualifying properties hierarchy
 		$signaturePropertiesId = null;
-		$qualifyingProperties = $this->createQualifyingProperties( 
-			$this->signatureId, 
-			$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource, 
-			$signatureProductionPlace, 
-			$signerRole, 
+		$qualifyingProperties = $this->createQualifyingProperties(
+			$this->signatureId,
+			$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource,
+			$signatureProductionPlace,
+			$signerRole,
 			$signaturePropertiesId,
 			$referenceId
 		);
 
-		// If the signature is to be attached, add a prefix so when the signature 
+		// If the signature is to be attached, add a prefix so when the signature
 		// is attached the importNode function does not add a 'default' prefix.
 		// if ( ! $xmlResource->detached )
 		{
@@ -508,7 +489,7 @@ class XAdES extends XMLSecurityDSig
 
 		$this->addReference(
 			$nodes[0],
-			XMLSecurityDSig::SHA256, 
+			XMLSecurityDSig::SHA256,
 			array( // Transforms
 				$canonicalizationMethod
 			),
@@ -525,8 +506,8 @@ class XAdES extends XMLSecurityDSig
 			$xmlResource->convertTransforms( ! $xmlResource->detached ), // Transforms
 			array( // Options
 				'force_uri' => $xmlResource->detached
-					? ( $xmlResource->isURL() 
-						? XMLSecurityDSig::encodedUrl( parse_url( $xmlResource->resource ) ) 
+					? ( $xmlResource->isURL()
+						? XMLSecurityDSig::encodedUrl( parse_url( $xmlResource->resource ) )
 						: basename( $xmlResource->resource )
 					  )
 					: true,
@@ -564,7 +545,7 @@ class XAdES extends XMLSecurityDSig
 
 		// Sign the XML file
 		$this->sign( $objKey );
-	
+
 		// Add the associated public key to the signature
 		if ( $certificateResource->isFile() )
 		{
@@ -628,18 +609,18 @@ class XAdES extends XMLSecurityDSig
 			$signature = $this->appendSignature( $doc->documentElement );
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
-			$namespaces = array( 
+			$namespaces = array(
 				'xa' => $this->currentNamespace,
-				'dsig-xpath' => self::XPATH_FILTER2 
+				'dsig-xpath' => self::XPATH_FILTER2
 			);
-			$clauses = array_map( 
+			$clauses = array_map(
 				function( $prefix ) use( $namespaces ) {
-					return sprintf( '\s*?xmlns:%s="%s"', $prefix, $namespaces[ $prefix ] ); 
-				}, array_keys( $namespaces ) 
+					return sprintf( '\s*?xmlns:%s="%s"', $prefix, $namespaces[ $prefix ] );
+				}, array_keys( $namespaces )
 			);
 			$xml = preg_replace( sprintf( '!(Signature.*?)%s!', join( '|', $clauses ) ), '$1', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 2 );
 
-			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );	
+			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );
 			file_put_contents( $this->getSignatureFilename( $location, $filename ), $xml );
 		}
 
@@ -647,7 +628,7 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
-	 * Create a signature for a resource.  This is used to create 
+	 * Create a signature for a resource.  This is used to create
 	 * a signature for a remote application like a browser to sign.
 	 *
 	 * @param InputResourceInfo|string $xmlResource
@@ -692,7 +673,7 @@ class XAdES extends XMLSecurityDSig
 			{
 				throw new XAdESException( "XML file does not exist" );
 			}
-	
+
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
 			$doc->load( $xmlResource->resource );
@@ -727,7 +708,7 @@ class XAdES extends XMLSecurityDSig
 		if ( ! $xmlResource->detached )
 		if ( $xmlResource->isXmlDocument() || $xmlResource->isString() || $xmlResource->isURL() )
 		{
-			// When the source is a string or url or a DOM document and the signature is not 
+			// When the source is a string or url or a DOM document and the signature is not
 			// detatched then there must be a location and file name defined
 			if ( ! $xmlResource->saveLocation || ! $xmlResource->saveFilename )
 			{
@@ -746,24 +727,24 @@ class XAdES extends XMLSecurityDSig
 			throw new XAdESException("The input document already contains a signature.  If you want additional indpendent signatures create a detatched signature instead.");
 		}
 		unset( $xpath );
-		
+
 		$this->setCanonicalMethod( $canonicalizationMethod ? $canonicalizationMethod : self::C14N );
 
-		// Create a reference id to use 
+		// Create a reference id to use
 		$referenceId = XMLSecurityDSig::generateGUID('xades-');
 
 		// Create a Qualifying properties hierarchy
 		$signaturePropertiesId = null;
-		$qualifyingProperties = $this->createQualifyingProperties( 
-			$this->signatureId, 
-			$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource, 
-			$signatureProductionPlace, 
-			$signerRole, 
+		$qualifyingProperties = $this->createQualifyingProperties(
+			$this->signatureId,
+			$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource,
+			$signatureProductionPlace,
+			$signerRole,
 			$signaturePropertiesId,
 			$referenceId
 		);
 
-		// If the signature is to be attached, add a prefix so when the signature 
+		// If the signature is to be attached, add a prefix so when the signature
 		// is attached the importNode function does not add a 'default' prefix.
 		// if ( ! $xmlResource->detached )
 		$qualifyingProperties->traverse( function( XmlCore $node )
@@ -791,7 +772,7 @@ class XAdES extends XMLSecurityDSig
 
 		$this->addReference(
 			$nodes[0],
-			XMLSecurityDSig::SHA256, 
+			XMLSecurityDSig::SHA256,
 			array( // Transforms
 				$canonicalizationMethod
 			),
@@ -808,8 +789,8 @@ class XAdES extends XMLSecurityDSig
 			$xmlResource->convertTransforms( ! $xmlResource->detached ), // Transforms
 			array( // Options
 				'force_uri' => $xmlResource->detached
-					? ( $xmlResource->isURL() 
-						? XMLSecurityDSig::encodedUrl( parse_url( $xmlResource->resource ) ) 
+					? ( $xmlResource->isURL()
+						? XMLSecurityDSig::encodedUrl( parse_url( $xmlResource->resource ) )
 						: basename( $xmlResource->resource )
 					  )
 					: true,
@@ -818,7 +799,7 @@ class XAdES extends XMLSecurityDSig
 		);
 
 		$canonicalizedSignedInfo = $this->getSignedInfoCanonicalized( XMLSecurityKey::RSA_SHA256 );
-	
+
 		// Add the associated public key to the signature
 		if ( $certificateResource->isFile() )
 		{
@@ -882,18 +863,18 @@ class XAdES extends XMLSecurityDSig
 			$signature = $this->appendSignature( $doc->documentElement );
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
-			$namespaces = array( 
+			$namespaces = array(
 				'xa' => $this->currentNamespace,
-				'dsig-xpath' => self::XPATH_FILTER2 
+				'dsig-xpath' => self::XPATH_FILTER2
 			);
-			$clauses = array_map( 
+			$clauses = array_map(
 				function( $prefix ) use( $namespaces ) {
-					return sprintf( '\s*?xmlns:%s="%s"', $prefix, $namespaces[ $prefix ] ); 
-				}, array_keys( $namespaces ) 
+					return sprintf( '\s*?xmlns:%s="%s"', $prefix, $namespaces[ $prefix ] );
+				}, array_keys( $namespaces )
 			);
 			$xml = preg_replace( sprintf( '!(Signature.*?)%s!', join( '|', $clauses ) ), '$1', $doc->saveXML( null, LIBXML_NOEMPTYTAG ), 2 );
 
-			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );	
+			// $doc->save( $this->getSignatureFilename( $location, $filename ), LIBXML_NOEMPTYTAG );
 			file_put_contents( $this->getSignatureFilename( $location, $filename ), $xml );
 		}
 
@@ -932,15 +913,15 @@ class XAdES extends XMLSecurityDSig
 		$sdop = new SignedDataObjectProperties(
 			new DataObjectFormat(
 				$this->fileBeingSigned->isFile()  // File reference
-					? basename( $this->fileBeingSigned->resource ) 
-					: ( $this->fileBeingSigned->isXmlDocument() 
+					? basename( $this->fileBeingSigned->resource )
+					: ( $this->fileBeingSigned->isXmlDocument()
 						? ( $this->fileBeingSigned->resource->baseURI
 								? $this->fileBeingSigned->resource->baseURI
 								: $this->fileBeingSigned->saveFilename
-						) 
+						)
 						: ( $this->fileBeingSigned->isString()
 								? $this->fileBeingSigned->saveFilename
-								: $this->fileBeingSigned->resource 
+								: $this->fileBeingSigned->resource
 						)
 					),
 				null, // ObjectIdentifier
@@ -974,7 +955,7 @@ class XAdES extends XMLSecurityDSig
 	protected function createQualifyingProperties(
 		$signatureId,
 		$certificate = null,
-		$signatureProductionPlace = null, 
+		$signatureProductionPlace = null,
 		$signerRole = null,
 		$signaturePropertiesId = null,
 		$referenceId = null,
@@ -1060,7 +1041,7 @@ class XAdES extends XMLSecurityDSig
 
 			// Check there are no known gremlins
 			$signature->validateElement();
-			// $signature->traverse( function( XmlCore $node ) 
+			// $signature->traverse( function( XmlCore $node )
 			// {
 			// 	echo "{$node->getLocalName()}\n";
 			// } );
@@ -1090,7 +1071,7 @@ class XAdES extends XMLSecurityDSig
 			}
 
 			$objKey = $this->locateKey();
-			if ( ! $objKey ) 
+			if ( ! $objKey )
 			{
 				throw new XAdESException("We have no idea about the key");
 			}
@@ -1098,7 +1079,7 @@ class XAdES extends XMLSecurityDSig
 
 			$objKeyInfo = XMLSecEnc::staticLocateKeyInfo( $objKey, $signatureNode );
 
-			if ( ! $objKeyInfo->key && empty( $key ) && $certificateFile ) 
+			if ( ! $objKeyInfo->key && empty( $key ) && $certificateFile )
 			{
 				// Load the certificate
 				$certificateFile = self::resolve_path( $signatureDoc->documentURI, $certificateFile );
@@ -1114,9 +1095,9 @@ class XAdES extends XMLSecurityDSig
 				$certificateData = $objKeyInfo->getCertificateData();
 				$serialNumber = $certificateData['serialNumber' ];
 				$issuer = $certificateData['issuer' ];
-	
+
 				echo "XAdES signature validated using certificate with serial number '$serialNumber' for '$issuer'\n";
-			} 
+			}
 			else
 			{
 				throw new XAdESException( "The XAdES signature is not valid: it may have been tampered with." );
@@ -1132,23 +1113,23 @@ class XAdES extends XMLSecurityDSig
 			$issuerSerialNumber = null;
 
 			/** @var Cert|CertV2 */
-			$cert = $signedProperties->getObjectFromPath( 
+			$cert = $signedProperties->getObjectFromPath(
 				array( "SignedSignatureProperties", "SigningCertificate", "Cert" )
 			);
 			if ( $cert ) // Its not V2
 			{
 				// Get the serial number from the signed properties
 				/** @var X509SerialNumber */
-				$serialNumberElement = $cert->getObjectFromPath( 
-					array( "IssuerSerial", "X509SerialNumber" ), 
-					'The certificate serial number does not exist in the signature' 
+				$serialNumberElement = $cert->getObjectFromPath(
+					array( "IssuerSerial", "X509SerialNumber" ),
+					'The certificate serial number does not exist in the signature'
 				);
 
 				$issuerSerialNumber = $serialNumberElement->text;
 			}
 			else // It is V2
 			{
-				// Look for an issuer certificate in the signature.  If one exists it 
+				// Look for an issuer certificate in the signature.  If one exists it
 				// will have been loaded by the call to XMLSecEnc::staticLocateKeyInfo()
 				$issuerCertificateData = $objKeyInfo->getCertificateData( 1 );
 				if ( $issuerCertificateData )
@@ -1163,9 +1144,9 @@ class XAdES extends XMLSecurityDSig
 					/** @var Sequence $issuerCertificate */
 					if ( ! $issuerCertificate )
 					{
-						throw new XAdESException("The issuer certificate for the certificate with serial number 'serialNumber' " . 
-							"that has been used to create the signature cannot be located.  " . 
-							"It is not included in the signature and it cannot be accessed " . 
+						throw new XAdESException("The issuer certificate for the certificate with serial number 'serialNumber' " .
+							"that has been used to create the signature cannot be located.  " .
+							"It is not included in the signature and it cannot be accessed " .
 							"using information in the signing certificate." );
 					}
 					$serialNumber = $certificateInfo->extractSerialNumberAsInteger( $issuerCertificate, true );
@@ -1178,14 +1159,14 @@ class XAdES extends XMLSecurityDSig
 						  );
 				}
 
-				$cert = $signedProperties->getObjectFromPath( 
+				$cert = $signedProperties->getObjectFromPath(
 					array( "SignedSignatureProperties", "SigningCertificateV2", "Cert" ),
 					'A <Cert> element cannot be found within <SignedProperties>'
 				);
 
 				// Get the serial number from the signed properties
 				/** @var X509SerialNumber */
-				$IssuerSerialElement = $cert->getObjectFromPath( 
+				$IssuerSerialElement = $cert->getObjectFromPath(
 					array( "IssuerSerialV2" )
 				);
 
@@ -1231,7 +1212,7 @@ class XAdES extends XMLSecurityDSig
 				/** @var string[] $issuer */
 				$issuer = $certificateData['issuer'];
 
-				$issuerElement = $cert->getObjectFromPath( 
+				$issuerElement = $cert->getObjectFromPath(
 					array( "IssuerSerial", "X509IssuerName" ),
 					$this->currentNamespace == self::NamespaceUrl2003
 						? 'The certificate issuer does not exist in the signature'
@@ -1247,7 +1228,7 @@ class XAdES extends XMLSecurityDSig
 
 			$this->validateUnsignedSignatureProperties( $qualifyingProperties );
 
-			// If the signature is being validated by the XAdES directly then the signature 
+			// If the signature is being validated by the XAdES directly then the signature
 			// policy cannot be validated because it knows nothing about any specific policy.
 			// Note get_class is used rather than instanceof so this class is checked explicitly.
 			if ( get_class( $this ) == XAdES::class ) return;
@@ -1356,8 +1337,8 @@ class XAdES extends XMLSecurityDSig
 	protected function validateSignaturePolicy( $signedProperties )
 	{
 		/** @var SignaturePolicyIdentifier */
-		$signaturePolicyIdentifier = $signedProperties->getObjectFromPath( 
-			array( "SignedSignatureProperties", "SignaturePolicyIdentifier" ), 
+		$signaturePolicyIdentifier = $signedProperties->getObjectFromPath(
+			array( "SignedSignatureProperties", "SignaturePolicyIdentifier" ),
 			"Unable to find <SignaturePolicyIdentifier> within <SignedProperties>"
 		);
 
@@ -1371,13 +1352,13 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		/** @var SignaturePolicyId */
-		$signaturePolicyId = $signaturePolicyIdentifier->getObjectFromPath( 
-			array( "SignaturePolicyId" ), 
+		$signaturePolicyId = $signaturePolicyIdentifier->getObjectFromPath(
+			array( "SignaturePolicyId" ),
 			"<SignaturePolicyId> is not in <SignaturePolicyIdentifier>"
 		);
 
-		$policyIdentifier = $signaturePolicyId->getObjectFromPath( 
-			array( "SigPolicyId", "Identifier" ), 
+		$policyIdentifier = $signaturePolicyId->getObjectFromPath(
+			array( "SigPolicyId", "Identifier" ),
 			"A signature policy element is expected but is not in the signature document."
 		);
 
@@ -1386,7 +1367,7 @@ class XAdES extends XMLSecurityDSig
 		$policyDocumentUrl = $this->getPolicyDocument( $policyIdentifier ) ;
 
 		// If there is no policy document available via the class used then there's no point continuing.
-		if ( ! $policyDocumentUrl ) 
+		if ( ! $policyDocumentUrl )
 			throw new XAdESException("Unable to access a policy document the policy identifier '$policyIdentifier'");
 
 		// Is there a digest for the policy document?
@@ -1403,8 +1384,8 @@ class XAdES extends XMLSecurityDSig
 			$policymethod = $policymethod ? $policymethod->algorithm : XMLSecurityDSig::SHA256;
 
 			$policyDoc = $this->getXmlDocument( $policyDocumentUrl );
-		
-			// Create a new Security object 
+
+			// Create a new Security object
 			$output = $this->processTransforms( $policyDoc->documentElement, $policyDoc->documentElement, false );
 			$digest = $this->calculateDigest( $policymethod, $output );
 
@@ -1465,12 +1446,12 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
-     * Adds a &lt;SignatureTimeStamp> which stores DER encoded response from a 
-	 * Time Stamp Authority (TSA) as defined in RFC3161.  The data passed is 
+     * Adds a &lt;SignatureTimeStamp> which stores DER encoded response from a
+	 * Time Stamp Authority (TSA) as defined in RFC3161.  The data passed is
 	 * hashed, in this case using SHA256 and it the hash that is sent to the
 	 * TSA and which is used by the TSA to create a signature along with a record
-	 * of the date and time. 
-     * 
+	 * of the date and time.
+     *
      * @param \DOMDocument $doc A DOMDocument instance that includes &lt;ds:SignatureValue>
      * @param string $signatureId The id of <ds:Signature> and isused as the property @Target of &lt;QualifyingProperties>
      * @param string $propertyId An id to use to identify the property.  Currently not used.
@@ -1482,7 +1463,7 @@ class XAdES extends XMLSecurityDSig
 		// Make sure there is a useful property id even when null is passed in
 		$propertyId = $propertyId ?? 'timestamp';
 
-		// Things done here may be sometimes repeat those done elsewhere.  This is so the 
+		// Things done here may be sometimes repeat those done elsewhere.  This is so the
 		// function can be called independently of creating a new signature.
 		$xpath = new \DOMXPath( $doc );
         $xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
@@ -1544,7 +1525,7 @@ class XAdES extends XMLSecurityDSig
 			$parent = $qp;
 			$startPoint = new UnsignedProperties(
 				new UnsignedSignatureProperties(
-					$timestamp					
+					$timestamp
 				)
 			);
 		}
@@ -1568,12 +1549,12 @@ class XAdES extends XMLSecurityDSig
 	}
 
 	/**
-     * Adds a &lt;ArchiveTimeStamp> which stores DER encoded response from a 
-	 * Time Stamp Authority (TSA) as defined in RFC3161.  The data passed is 
+     * Adds a &lt;ArchiveTimeStamp> which stores DER encoded response from a
+	 * Time Stamp Authority (TSA) as defined in RFC3161.  The data passed is
 	 * hashed, in this case using SHA256 and it the hash that is sent to the
 	 * TSA and which is used by the TSA to create a signature along with a record
-	 * of the date and time. 
-     * 
+	 * of the date and time.
+     *
      * @param \DOMDocument $doc A DOMDocument instance that includes &lt;ds:SignatureValue>
      * @param string $signatureId The id of <ds:Signature> and isused as the property @Target of &lt;QualifyingProperties>
      * @param string $propertyId An id to use to identify the property.  Currently not used.
@@ -1586,7 +1567,7 @@ class XAdES extends XMLSecurityDSig
 		$propertyId = $propertyId ?? self::generateGUID( '_' );
 
 		// Now create the imprint for the timestamp.
-		// The task is to create a concatenated string of various elements 
+		// The task is to create a concatenated string of various elements
 		// as defined in ETSI EN 319 132-1 V1.1.1 (2016-04) section 5.5.2.2
 
 		/** @var \DOMElement */
@@ -1599,7 +1580,7 @@ class XAdES extends XMLSecurityDSig
 
 		/** @var \lyquidity\xmldsig\xml\Signature */
 		$signature = Generic::fromNode( $signatureNode );
-	
+
 		// Start with canonicalized references
 		$canonicalized = implode( '', $this->validateReference() );
 
@@ -1647,12 +1628,12 @@ class XAdES extends XMLSecurityDSig
 
 		/**
 		 * From ETSI EN 319 132-1 V1.1.1 (2016-04) section 5.5.2.2
-		 * 
+		 *
 		 * 4) Take the unsigned signature qualifying properties that appear before the current ArchiveTimeStamp in the
 		 *    order they appear within the UnsignedSignatureProperties, canonicalize each one as specified in
 		 *    clause 4.5, and concatenate each resulting octet stream to the final octet stream.
-		 * 
-		 * BMS: This surely applies when validating.  When create a timestamp ALL elements are before the timestamp 
+		 *
+		 * BMS: This surely applies when validating.  When create a timestamp ALL elements are before the timestamp
 		 * 		because it doesn't exist yet.
 		 */
 
@@ -1674,9 +1655,9 @@ class XAdES extends XMLSecurityDSig
 				// If iy is, ignore it.  If its not, record the timestamp for processing
 				if ( ! ( $timestamp instanceof TimeStampValidationData ) )
 				{
-					$timestamps[] = $timestamp;					
+					$timestamps[] = $timestamp;
 				}
-			
+
 				// Reset the timestamp flag
 				$timestamp = null;
 			}
@@ -1700,7 +1681,7 @@ class XAdES extends XMLSecurityDSig
 
 			if ( $property instanceof CertificateValues )
 			{
-				$hasCertificateValues = true;	
+				$hasCertificateValues = true;
 			}
 
 			/**
@@ -1711,7 +1692,7 @@ class XAdES extends XMLSecurityDSig
 
 			if ( $property instanceof RevocationValues )
 			{
-				$hasRevocationValues = true;	
+				$hasRevocationValues = true;
 			}
 
 			/**
@@ -1719,14 +1700,14 @@ class XAdES extends XMLSecurityDSig
 			 *    not already present and the following conditions are true: attribute certificate(s) or signed assertions have
 			 *    been incorporated into the signature, and the signature misses some certificates required for their
 			 *    validation; and
-			 * 
+			 *
 			 * BMS These will not be used
 			 *
 			 */
-			
+
 			if ( $property instanceof AttrAuthoritiesCertValues )
 			{
-				$hasAttrAuthoritiesCertValues = true;	
+				$hasAttrAuthoritiesCertValues = true;
 			}
 
 			/**
@@ -1734,16 +1715,16 @@ class XAdES extends XMLSecurityDSig
 			 *    not already present and the following conditions are true: attribute certificates or signed assertions have
 			 *    been incorporated into the signature, and the signature misses some revocation values required for their
 			 *    validation.
-			 * 
+			 *
 			 * BMS These will not be used
 			 */
 
 			if ( $property instanceof AttributeRevocationValues )
 			{
-				$hasAttributeRevocationValues = true;	
+				$hasAttributeRevocationValues = true;
 			}
 
-			$canonicalized .= $this->canonicalizeData( $property->node, $this->canonicalMethod );			
+			$canonicalized .= $this->canonicalizeData( $property->node, $this->canonicalMethod );
 		}
 
 		if ( $timestamp )
@@ -1821,7 +1802,7 @@ class XAdES extends XMLSecurityDSig
 		if ( ! $timestamps ) return;
 
 		$securityKey = $this->locateKey();
-		if ( ! $securityKey ) 
+		if ( ! $securityKey )
 		{
 			throw new XAdESException("We have no idea about the key");
 		}
@@ -1873,12 +1854,12 @@ class XAdES extends XMLSecurityDSig
 			$subjectPEM = Ocsp::PEMize( ( new Encoder() )->encodeElement( $subject ) );
 			$this->verifyChain( $existingCertificates, $subjectPEM, $keyChain, $missingCertificates, $revocationValues, $caBundle );
 
-			// Create 
+			// Create
 			$missingCertificates = array_unique( $missingCertificates );
 			$certificateValues = null;
 
 			if ( $missingCertificates )
-			{	
+			{
 				$certificateValues = new CertificateValues();
 
 				// Add the certificate values
@@ -1888,7 +1869,7 @@ class XAdES extends XMLSecurityDSig
 					$certificateValues->addProperty( new EncapsulatedX509Certificate( base64_encode( $certificate ) ) );
 				}
 			}
-	
+
 			$revocationValues['ocsp'] = array_unique( $revocationValues['ocsp'] );
 			$revocationValues['crl'] = array_unique( $revocationValues['crl'] );
 			$values = null;
@@ -1896,7 +1877,7 @@ class XAdES extends XMLSecurityDSig
 			if ( $revocationValues['ocsp'] || $revocationValues['crl'] )
 			{
 				$values = new RevocationValues();
-	
+
 				// Add the revocation values
 				if ( $revocationValues['ocsp'] )
 				{
@@ -1906,14 +1887,14 @@ class XAdES extends XMLSecurityDSig
 					{
 						$ocspValues = $values->ocspValues = new OCSPValues();
 					}
-		
+
 					foreach( $revocationValues['ocsp'] as $ocspValue )
 					{
 						/** @var OCSPValues $ocspValues */
 						$ocspValues->addProperty( new EncapsulatedOCSPValue( base64_encode( $ocspValue ) ) );
 					}
 				}
-	
+
 				// Add the revocation values
 				if ( $revocationValues['crl'] )
 				{
@@ -1923,7 +1904,7 @@ class XAdES extends XMLSecurityDSig
 					{
 						$crlValues = $values->crlValues = new CRLValues();
 					}
-		
+
 					foreach( $revocationValues['crl'] as $crlValue )
 					{
 						/** @var CRLValues $crlValues */
@@ -1932,7 +1913,7 @@ class XAdES extends XMLSecurityDSig
 
 					$crlValues->validateElement();
 				}
-			}	
+			}
 
 			if ( $certificateValues || $values )
 			{
@@ -1959,40 +1940,40 @@ class XAdES extends XMLSecurityDSig
 	{
 		/**
 		 * Note from section 5.4.1 of the specification. The CertificateValues qualifying property:
-		 * 
-		 * 1) Shall contain the certificate of the trust anchor, if such certificate does exist and 
-		 *    if it is not present within the ds:KeyInfo. If this certificate is present within the 
+		 *
+		 * 1) Shall contain the certificate of the trust anchor, if such certificate does exist and
+		 *    if it is not present within the ds:KeyInfo. If this certificate is present within the
 		 *    ds:KeyInfo, it should not be included.
 		 *
-		 * 2) Shall contain the CA certificates within the signing certificate path that are not 
-		 *    present within the ds:KeyInfo. The certificates present within ds:KeyInfo element 
+		 * 2) Shall contain the CA certificates within the signing certificate path that are not
+		 *    present within the ds:KeyInfo. The certificates present within ds:KeyInfo element
 		 *    should not be included.
 		 *
-		 * 3) Shall contain the signing certificate if it is not present within the ds:KeyInfo. If 
+		 * 3) Shall contain the signing certificate if it is not present within the ds:KeyInfo. If
 		 *    this certificate is present within the ds:KeyInfo, it should not be included.
 		 *
-		 * 4) Shall contain certificates used to sign revocation status information (e.g. CRLs or OCSP 
-		 *    responses) of certificates in 1), 2), and 3), and certificates within their respective 
-		 *    certificate paths that are not present in the signature. Certificate values present 
-		 *    within the signature, including certificate values within the revocation status information 
+		 * 4) Shall contain certificates used to sign revocation status information (e.g. CRLs or OCSP
+		 *    responses) of certificates in 1), 2), and 3), and certificates within their respective
+		 *    certificate paths that are not present in the signature. Certificate values present
+		 *    within the signature, including certificate values within the revocation status information
 		 *    themselves should not be included.
 		 *
-		 * 5) Shall not contain CA certificates that pertain exclusively to the certificate paths of 
-		 *    certificates used to sign attribute certificates or signed assertions within SignerRoleV2, 
+		 * 5) Shall not contain CA certificates that pertain exclusively to the certificate paths of
+		 *    certificates used to sign attribute certificates or signed assertions within SignerRoleV2,
 		 *    or electronic time-stamps. And ETSI 38 ETSI EN 319 132-1 V1.1.1 (2016-04)
 		 *
 		 * 6) May contain a set of certificates used to validate any countersignature incorporated
-		 *    into the XAdES signature * that are not present in other elements of the XAdES signature 
-		 *    or its countersignatures. This set may include any of the certificates listed in 1), 2), 
-		 *    3) and 4) referred to signing certificates of countersignatures instead of the signing 
+		 *    into the XAdES signature * that are not present in other elements of the XAdES signature
+		 *    or its countersignatures. This set may include any of the certificates listed in 1), 2),
+		 *    3) and 4) referred to signing certificates of countersignatures instead of the signing
 		 *    certificate of the XAdES signature. The certificates present elsewhere in the XAdES signature
-		 *    or its countersignatures should not be included. 
+		 *    or its countersignatures should not be included.
 		 */
 
 		// Begin with 1), 2) and 3) that is by checking the signing certificate chain.
 
 		$securityKey = $this->locateKey();
-		if ( ! $securityKey ) 
+		if ( ! $securityKey )
 		{
 			throw new XAdESException("We have no idea about the key");
 		}
@@ -2005,7 +1986,7 @@ class XAdES extends XMLSecurityDSig
 			$certificatePEM = $securityKey->getX509Certificate( $key );
 			$thumbprint = XMLSecurityKey::getRawThumbprint( $certificatePEM );
 			// Is this the signing certificate? If so, ignore.
-			if ( $securityKey->getX509Thumbprint() != $thumbprint ) 
+			if ( $securityKey->getX509Thumbprint() != $thumbprint )
 			{
 				$carry[] = $certificatePEM;
 			}
@@ -2097,7 +2078,7 @@ class XAdES extends XMLSecurityDSig
 				{
 					$ocspValues = $values->ocspValues = new OCSPValues();
 				}
-	
+
 				foreach( $revocationValues['ocsp'] as $ocspValue )
 				{
 					/** @var OCSPValues $ocspValues */
@@ -2115,7 +2096,7 @@ class XAdES extends XMLSecurityDSig
 					$crlValues = $values->crlValues = new CRLValues();
 					// $crlValues->generateXml( $values->node );
 				}
-	
+
 				foreach( $revocationValues['crl'] as $crlValue )
 				{
 					/** @var CRLValues $crlValues */
@@ -2157,7 +2138,7 @@ class XAdES extends XMLSecurityDSig
 		$info = new CertificateInfo();
 
 		// Reached the end of the chain covered by certificates in <KeyInfo> so need to look at the AIA
-		$ocspResponderUrl = $info->extractOcspResponderUrl( $subject );	
+		$ocspResponderUrl = $info->extractOcspResponderUrl( $subject );
 		$this->getRevocationValues( $subject, $ocspResponderUrl, $missingCertificates, $revocationValues, $caBundle );
 
 		while( true )
@@ -2284,7 +2265,7 @@ class XAdES extends XMLSecurityDSig
 	/**
 	 * Create &lt;checkAttrAuthoritiesCertValues node if there are any certificates that are unaccounted for
 	 * and return a canonicalized string of the node.
-	 * 
+	 *
 	 * BMS This is currently not used and will return an empty string
 	 *
 	 * @param \DOMElement $signatureNode
@@ -2299,7 +2280,7 @@ class XAdES extends XMLSecurityDSig
 	/**
 	 * Create &lt;checkAttributeRevocationValues node if there are any certificates that are unaccounted for
 	 * and return a canonicalized string of the node.
-	 * 
+	 *
 	 * BMS This is currently not used and will return an empty string
 	 *
 	 * @param \DOMElement $signatureNode
@@ -2367,7 +2348,7 @@ class XAdES extends XMLSecurityDSig
 					throw new XAdESException("The key resource must be a KeyResourceInfo instance");
 			}
 		}
-	
+
 		// Load the existing document containing the signature
 		if ( $xmlResource->isFile() )
 		{
@@ -2375,7 +2356,7 @@ class XAdES extends XMLSecurityDSig
 			{
 				throw new XAdESException( "XML file does not exist" );
 			}
-	
+
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
 			$doc->load( $xmlResource->resource );
@@ -2406,7 +2387,7 @@ class XAdES extends XMLSecurityDSig
 
 		$this->fileBeingSigned = $xmlResource;
 		$this->signatureId = $xmlResource->id;
-	
+
 		$xpath = new \DOMXPath( $doc );
 		$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
 		$xpath->registerNamespace( 'xa', $this->currentNamespace );
@@ -2437,7 +2418,7 @@ class XAdES extends XMLSecurityDSig
 		$xmlDSig = new XMLSecurityDSig( $this->prefix ?? XMLSecurityDSig::defaultPrefix, $xmlResource->elementSignatureId );
 		$xmlDSig->setCanonicalMethod( $canonicalizationMethod );
 
-		// Create a reference id to use 
+		// Create a reference id to use
 		$referenceId = XMLSecurityDSig::generateGUID('counter-signature-');
 		$this->signatureId = $xmlResource->elementSignatureId ?? null;
 
@@ -2449,15 +2430,15 @@ class XAdES extends XMLSecurityDSig
 
 			$qualifyingProperties = $this->createQualifyingProperties(
 				$this->signatureId, // Id of the signature to sign
-				$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource, 
-				$signatureProductionPlace, 
-				$signerRole, 
+				$certificateResource->isFile() ? file_get_contents( $certificateResource->resource ) : $certificateResource->resource,
+				$signatureProductionPlace,
+				$signerRole,
 				$signedSignatureProperties, // Id of the signedSignatureProperties of the counter signature
 				$this->signatureId, // Target - the id of the signature being created. This is added to the data object element.
 				$signedProperties
 			);
 
-			// A counter signature is NEVER detatched so add a prefix so when the signature 
+			// A counter signature is NEVER detatched so add a prefix so when the signature
 			// is attached the importNode function does not add a 'default' prefix.
 			$qualifyingProperties->traverse( function( XmlCore $node )
 			{
@@ -2484,7 +2465,7 @@ class XAdES extends XMLSecurityDSig
 
 			$xmlDSig->addReference(
 				$nodes[0],
-				XMLSecurityDSig::SHA256, 
+				XMLSecurityDSig::SHA256,
 				array( // Transforms
 					$canonicalizationMethod
 				),
@@ -2568,7 +2549,7 @@ class XAdES extends XMLSecurityDSig
 			throw new XAdESException( "The resource supplied representing the certificate to be recorded in the signature is not valid." );
 		}
 
-		// Make sure there are node on the path from <Signature> to 
+		// Make sure there are node on the path from <Signature> to
 		// <CounterSignature> and add elements where they are missing
 		$object = $signature->object;
 		if ( ! $object )
@@ -2662,7 +2643,7 @@ class XAdES extends XMLSecurityDSig
 	 */
 	protected function validateCounterSignature( $signature )
 	{
-		// Create a new Security object 
+		// Create a new Security object
 		$objXMLSecDSig  = new XMLSecurityDSig();
 
 		$objDSig = $objXMLSecDSig->locateSignature( $signature->node->ownerDocument );
@@ -2671,16 +2652,16 @@ class XAdES extends XMLSecurityDSig
 			throw new XAdESException("Cannot locate Signature Node");
 		}
 		$objXMLSecDSig->canonicalizeSignedInfo();
-		
+
 		$return = $objXMLSecDSig->validateReference();
 
 		if ( ! $return)
 		{
 			throw new XAdESException("Reference Validation Failed");
 		}
-		
+
 		$objKey = $objXMLSecDSig->locateKey();
-		if ( ! $objKey ) 
+		if ( ! $objKey )
 		{
 			throw new XAdESException("We have no idea about the key");
 		}
@@ -2688,7 +2669,7 @@ class XAdES extends XMLSecurityDSig
 
 		$objKeyInfo = XMLSecEnc::staticLocateKeyInfo( $objKey, $objDSig );
 
-		if ( ! $objKeyInfo || ! $objKeyInfo->key ) 
+		if ( ! $objKeyInfo || ! $objKeyInfo->key )
 		{
 			throw new XAdESException("Unable to locate a public from the certificate used to create the counter signature.");
 		}
@@ -2700,7 +2681,7 @@ class XAdES extends XMLSecurityDSig
 			$issuer = $certificateData['issuer' ];
 
 			echo "Counter signature validated using certificate with serial number '$serialNumber' for '$issuer'\n";
-		} 
+		}
 		else
 		{
 			$path = $signature->node->getNodePath();

@@ -23,7 +23,7 @@ class InputResourceInfo extends BaseInputResourceInfo
 	public $detached = true;
 
 	/**
-	 * An optional Transforms instance allows a caller to define how the referenced 
+	 * An optional Transforms instance allows a caller to define how the referenced
 	 * content should be transformed before the digest is computed.  For example, it
 	 * might be necessary to make sure only certain types of content are in the XML
 	 * to be signed.  An example is removing aany existing signature. Another is to
@@ -86,7 +86,7 @@ class InputResourceInfo extends BaseInputResourceInfo
 
 		if ( $removeSignatures && ( ! $this->transforms || ! $this->transforms instanceof Transforms ) && ! $this->hasEnveloped() )
 		{
-			// Whe working with an attached signature, there will be a signature 
+			// Whe working with an attached signature, there will be a signature
 			// in the input document so add a transform to remove it/them
 			$envelopedTransform = new Transform( XMLSecurityDSig::ENV_SIG );
 			$result[] = $envelopedTransform->toSimpleRepresentation();
@@ -107,5 +107,33 @@ class InputResourceInfo extends BaseInputResourceInfo
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Generate dom document from resource data
+	 * @return \DOMDocument
+	 */
+	public function generateDomDocument()
+	{
+		if ($this->isFile()) {
+			if (!file_exists($this->resource)) {
+				throw new XAdESException("XML file does not exist");
+			}
+		// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load($this->resource);
+		} else if ($this->isXmlDocument()) {
+			$doc = $this->resource;
+		} else if ($this->isURL()) {
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load($this->resource);
+		} else if ($this->isString()) {
+			$doc = new \DOMDocument();
+			$doc->loadXML($this->resource);
+		} else {
+			throw new XAdESException("The resource supplied representing the document to be signed is not valid.");
+		}
+		return $doc;
 	}
 }
