@@ -137,7 +137,7 @@ class XMLSecurityDSig
     /** @var string */
     private $signedInfo = null;
 
-    /** @var DomXPath */
+    /** @var DOMXPath */
     private $xPathCtx = null;
 
     /** @var string|null */
@@ -192,7 +192,7 @@ class XMLSecurityDSig
 
         // Add the signature fragment
         $sigdoc = new DOMDocument();
-        $sigdoc->loadXML( $template );
+    	$sigdoc->loadXML( $template );
         $this->sigNode = $sigdoc->documentElement;
 
         // Add an Id if the param is valid
@@ -773,10 +773,10 @@ class XMLSecurityDSig
                 $namespaceNodes = $xPath->query("//namespace::*");
                 foreach( $namespaceNodes as $namespaceNode )
                     $nodeList[] = $namespaceNode;
-
+            
                 $xml = XmlDsigFilterTransform::nodesetToXml( $nodeList, false, $includeCommentNodes );
             }
-
+            
             $dataObject = new \DOMDocument();
             $dataObject->loadXML( $xml );
             unset( $xml );

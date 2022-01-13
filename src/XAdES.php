@@ -607,11 +607,11 @@ class XAdES extends XMLSecurityDSig
 			  );
 
 		$filename = $xmlResource->saveFilename
-		? "{$xmlResource->saveFilename}"
-		: (
-			$xmlResource->isFile()
-				? basename( $xmlResource->resource )
-				: self::SignatureFilename
+			? "{$xmlResource->saveFilename}"
+			: (
+				$xmlResource->isFile()
+					? basename( $xmlResource->resource )
+					: self::SignatureFilename
 		);
 
 		// Add 'xml' extension if one ios not provided
