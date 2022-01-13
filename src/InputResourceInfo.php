@@ -123,7 +123,7 @@ class InputResourceInfo extends BaseInputResourceInfo
 			$doc = new \DOMDocument();
 			$doc->load($this->resource);
 		} else if ($this->isXmlDocument()) {
-			$doc = $this->resource;
+			$doc = clone($this->resource);
 		} else if ($this->isURL()) {
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
