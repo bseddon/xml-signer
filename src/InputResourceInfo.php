@@ -108,4 +108,50 @@ class InputResourceInfo extends BaseInputResourceInfo
 
 		return $result;
 	}
+
+	/**
+	 * Generate dom document from resource data
+	 * @return \DOMDocument
+	 */
+	public function generateDomDocument()
+	{
+		if ( $this->isFile() )
+		{
+			if (!file_exists($this->resource))
+			{
+				throw new XAdESException("XML file does not exist");
+			}
+
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			$doc->load($this->resource);
+		} 
+		else if ( $this->isXmlDocument() )
+		{
+			$doc = clone( $this->resource );
+		} 
+		else if ( $this->isURL() )
+		{
+			// Load the XML to be signed
+			$doc = new \DOMDocument();
+			if ( ! $doc->load( $this->resource ) )
+			{
+				throw new XAdESException( "URL does not reference a valid XML document" );
+			}
+		}
+		else if ($this->isString())
+		{
+			$doc = new \DOMDocument();
+			if ( ! $doc->loadXML( $this->resource ) )
+			{
+				throw new XAdESException( "Unable to load XML string" );
+			}
+		}
+		else
+		{
+			throw new XAdESException("The resource supplied representing the document to be signed is not valid.");
+		}
+
+		return $doc;
+	}
 }

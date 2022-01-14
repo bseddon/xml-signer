@@ -153,6 +153,7 @@ class XAdES extends XMLSecurityDSig
 	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
 		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+
 		if ( is_array( $options ) )
 		{
 			$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
@@ -306,31 +307,7 @@ class XAdES extends XMLSecurityDSig
 		}
 
 		// Load the existing document containing the signature
-		if ( $xmlResource->isFile() )
-		{
-			if ( ! file_exists( $xmlResource->resource ) )
-			{
-				throw new XAdESException( "XML file does not exist" );
-			}
-	
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
-		}
-		else if ( $xmlResource->isXmlDocument() )
-		{
-			$doc = $xmlResource->resource;
-		}
-		else if ( $xmlResource->isString() || $xmlResource->isURL() )
-		{
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
-		}
-		else
-		{
-			throw new XAdESException( "The resource supplied representing the document to be signed is not valid." );
-		}
+		$doc = $xmlResource->generateDomDocument();
 
 		$signatureId = $xmlResource instanceof SignedDocumentResourceInfo ? $xmlResource->id : $xmlResource->signatureId;
 		$instance = new static();
@@ -398,43 +375,16 @@ class XAdES extends XMLSecurityDSig
 				throw new XAdESException("The key resource must be a KeyResourceInfo instance");
 		}
 
-		if ( $xmlResource->isFile() )
+		$doc = $xmlResource->generateDomDocument();
+
+		if ( $xmlResource instanceof InputResourceInfo && ! $xmlResource->detached )
 		{
-			if ( ! file_exists( $xmlResource->resource ) )
-			{
-				throw new XAdESException( "XML file does not exist" );
-			}
-	
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			$doc->load( $xmlResource->resource );
-		}
-		else if ( $xmlResource->isXmlDocument() )
-		{
-			$doc = $xmlResource->resource;
-		}
-		else if ( $xmlResource->isURL() )
-		{
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			if ( ! $doc->load( $xmlResource->resource ) )
-			{
-				throw new XAdESException( "URL does not reference a valid XML document" );
-			}
-		}
-		else if ( $xmlResource->isString() )
-		{
-			// Load the XML to be signed
-			$doc = new \DOMDocument();
-			if ( ! $doc->loadXML( $xmlResource->resource ) )
-			{
-				throw new XAdESException( "Unable to load XML string" );
-			}
-		}
-		else
-		{
-			throw new XAdESException( "The resource supplied representing the document to be signed is not valid." );
-		}
+			$cloneDoc = clone( $doc );
+            $sigdocElement = $cloneDoc->importNode( $this->sigNode, true );
+            $cloneDoc->documentElement->appendChild( $sigdocElement );
+
+            $this->sigNode = $sigdocElement;
+        }
 
 		if ( ! $xmlResource->detached )
 		if ( $xmlResource->isXmlDocument() || $xmlResource->isString() || $xmlResource->isURL() )
