@@ -101,7 +101,7 @@ class SigningCertificateV2 extends XmlCore
 		/** @var Sequence $issuerCertificate */
 
 		// If the issuer certificate can be found the use its values
-		$isserSerialDER = null;
+		$issuerSerialDER = null;
 		if ( $issuerCertificate )
 		{
 			/*
@@ -168,7 +168,7 @@ class SigningCertificateV2 extends XmlCore
 			// 	)
 			// );
 
-			$isserSerialDER = (new Encoder())->encodeElement( $isserSerial );
+			$issuerSerialDER = (new Encoder())->encodeElement( $isserSerial );
 		}
 
 		// Add the algorithm attribute
@@ -181,7 +181,7 @@ class SigningCertificateV2 extends XmlCore
 					new DigestMethod( $algorithm ),
 					new DigestValue( $digest )
 				),
-				$isserSerialDER ? new IssuerSerialV2( base64_encode( $isserSerialDER ) ) : null,
+				$issuerSerialDER ? new IssuerSerialV2( base64_encode( $issuerSerialDER ) ) : null,
 				$uri
 			),
 			$algorithm
