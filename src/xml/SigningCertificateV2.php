@@ -150,7 +150,7 @@ class SigningCertificateV2 extends XmlCore
 
 			$isserSerial = Sequence::create(
 				array(
-					$certificateInfo->extractIssuer( $issuerCertificate ),
+					$certificateInfo->extractSubject( $issuerCertificate ),
 					$certificateInfo->extractSerialNumberAsInteger( $issuerCertificate )
 				)
 			);
