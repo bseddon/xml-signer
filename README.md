@@ -246,8 +246,8 @@ if ( ! openssl_pkcs12_read( file_get_contents( '/path_to_pkcs12_file/my.p12' ), 
 Then use these instantiations of the **CertificateResourceInfo** and **KeyResourceInfo** classes in your code to use the respective contents of the PKCS12 file:
 
 ```php
-new CertificateResourceInfo( $store['cert'], ResourceInfo::isTypeString() | ResourceInfo::isTypeBinary() | ResourceInfo::isTypePEM() ),
-new KeyResourceInfo( $store['pkey'], ResourceInfo::isTypeString() | ResourceInfo::isTypeBinary() | ResourceInfo::isTypePEM() ),
+new CertificateResourceInfo( $store['cert'], ResourceInfo::string | ResourceInfo::binary | ResourceInfo::pem ),
+new KeyResourceInfo( $store['pkey'], ResourceInfo::string() | ResourceInfo::binary | ResourceInfo::pem ),
 ```
 
 The resource for each is the appropriate elements of the array returned by **openssl_pkcs12_read** function.  The flags used let the processor know the contents will be a text string or a binary string and will be PEM encoded.
