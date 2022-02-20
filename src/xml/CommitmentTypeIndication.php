@@ -124,7 +124,7 @@ class CommitmentTypeIndication extends XmlCore
 	public function loadInnerXml( $node )
 	{
 		parent::loadInnerXml( $node );
-		// There a not attributes for this element
+		// There are no attributes for this element
 
 		foreach ( $node->childNodes as $childNode )
 		{
