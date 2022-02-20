@@ -17,8 +17,24 @@ namespace lyquidity\xmldsig\xml;
 /**
  * Creates a node for &lt;SigPolicyQualifier>
  */
-class SigPolicyQualifier extends TextBase
+class SigPolicyQualifier extends Generic
 {
+	/**
+	 * Constructor
+	 *
+	 * @param string|XmlCore $childNode
+	 */
+	public function __construct( $childNode )
+	{
+		$this->childNodes = array();
+		$this->defaultNamespace = XmlCore::getDefaultNamespace();
+
+		if ( is_string( $childNode ) )
+			$this->text = $childNode;
+		else if ( is_object( $childNode ) )
+			$this->addChildNode( $childNode );
+	}
+
 	/**
 	 * Returns the instance local name
 	 * @return string
@@ -27,4 +43,5 @@ class SigPolicyQualifier extends TextBase
 	{
 		return ElementNames::SigPolicyQualifier;
 	}
+
 }
