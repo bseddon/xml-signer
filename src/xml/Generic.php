@@ -195,7 +195,7 @@ class Generic extends XmlCore
 	 * Returns an object or null for the instance on the 
 	 * path described by the element in the parameter array
 	 * @param string[] $pathElements
-	 * @param strig $exceptionMessage
+	 * @param string $exceptionMessage
 	 * @return mixed
 	 * @throws \Exception
 	 */
