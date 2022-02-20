@@ -80,19 +80,14 @@ use lyquidity\xmldsig\xml\SignerRoleV2;
 use lyquidity\xmldsig\xml\SigningCertificateV2;
 use lyquidity\xmldsig\xml\SigningTime;
 use lyquidity\xmldsig\xml\TimeStampValidationData;
-use lyquidity\xmldsig\xml\Transform;
-use lyquidity\xmldsig\xml\TransformXPathFilter2;
 use lyquidity\xmldsig\xml\UnsignedProperties;
 use lyquidity\xmldsig\xml\UnsignedSignatureProperties;
-use lyquidity\xmldsig\xml\UnsignedSignatureProperty;
 use lyquidity\xmldsig\xml\X509SerialNumber;
 use lyquidity\xmldsig\xml\XAdESTimeStamp;
 use lyquidity\xmldsig\xml\XmlCore;
 use lyquidity\xmldsig\xml\XPathFilter2;
 
 use function lyquidity\Asn1\asSequence;
-use function lyquidity\xades\get_ca_bundle;
-use function lyquidity\xades\get_tsa_url;
 
 define( 'ADDTIMESTAMP', 'addTimestamp' );
 define( 'ADDARCHIVETIMESTAMP', 'addArchiveTimestamp' );
@@ -1144,6 +1139,7 @@ class XAdES extends XMLSecurityDSig
 					$issuer = asSequence( (new Decoder())->decodeElement( base64_decode( $IssuerSerialElement->text ) ) );
 					if ( $issuer )
 					{
+						/** @var BigInteger|Integer $integer */
 						$integer = $issuer->getFirstChildOfType( UniversalTagID::INTEGER );
 						$issuerSerialNumber = $integer instanceof BigInteger
 							? $integer->base10()
