@@ -35,28 +35,6 @@ class SigPolicyQualifiers extends PropertiesCollection
 	public function __construct( $sigPolicyQualifiers = null )
 	{
 		parent::__construct( self::createConstructorArray( $sigPolicyQualifiers, SigPolicyQualifier::class ) );
-
-		// if ( ! $sigPolicyQualifiers ) return;
-		//
-		// if ( is_string( $sigPolicyQualifiers ) )
-		// { 
-		// 	$this->sigPolicyQualifiers[] = new SigPolicyQualifier( $sigPolicyQualifiers );
-		// }
-		// else if ( $sigPolicyQualifiers instanceof SigPolicyQualifier )
-		// {
-		// 	$this->sigPolicyQualifiers[] = $sigPolicyQualifiers;
-		// }
-		// else if ( is_array( $sigPolicyQualifiers ) )
-		// {
-		// 	// Check all array members are XPathFilter
-		// 	foreach( $sigPolicyQualifiers as $sigPolicyQualifier )
-		// 	{
-		// 		if ( ! $sigPolicyQualifier instanceof SigPolicyQualifier && ! is_string( $sigPolicyQualifier ) )
-		// 			throw new \Exception("All the members of the array passed to the SigPolicyQualifiers constructor must be of type SigPolicyQualifier or string");
-		// 		$this->sigPolicyQualifiers[] = $sigPolicyQualifier instanceof SigPolicyQualifier ? $sigPolicyQualifier : new SigPolicyQualifier( $sigPolicyQualifier );
-		// 	}
-		// }
-		// else throw new \Exception("The XPaths parameter passed to the TransformXPathFilter2 constructor is not valid");
 	}
 
 	/**
@@ -83,4 +61,19 @@ class SigPolicyQualifiers extends PropertiesCollection
 		if ( count( $sigPolicyQualifiers ) != count( $this->properties  ) )
 			throw new \Exception("All <SigPolicyQualifiers> children must be of type SigPolicyQualifier");
 	}
+
+	/**
+	 * Create &lt;properties> and any descendent elements
+	 * 
+	 * @param \DOMElement $parentNode
+	 * @param string[] $attributes
+	 * @param \DOMElement $insertAfter
+	 * @return \DOMElement
+	 */
+	public function generateXml( $parentNode, $attributes = array(), $insertAfter = null )
+	{
+		// Create a nodes for this element
+		parent::generateXml( $parentNode, $attributes, $insertAfter );
+	}
+
 }
