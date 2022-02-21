@@ -22,7 +22,7 @@ class SigningTime extends TextBase
 	 */
 	public function __construct( $date = null )
 	{
-		$this->text = $date ?? date( 'c' ); //Do not use DateTime::ISO8601
+		$this->text = $date ?? ( date_default_timezone_get() == 'UTC' ? date('Y-m-d\TH:i:s\Z') : date( 'c' ) ); //Do not use DateTime::ISO8601
 	}
 
 	/**
