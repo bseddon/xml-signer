@@ -77,6 +77,7 @@ use lyquidity\xmldsig\xml\SignedProperties;
 use lyquidity\xmldsig\xml\SignedSignatureProperties;
 use lyquidity\xmldsig\xml\SignerRole;
 use lyquidity\xmldsig\xml\SignerRoleV2;
+use lyquidity\xmldsig\xml\SigningCertificate;
 use lyquidity\xmldsig\xml\SigningCertificateV2;
 use lyquidity\xmldsig\xml\SigningTime;
 use lyquidity\xmldsig\xml\TimeStampValidationData;
@@ -124,7 +125,7 @@ class XAdES extends XMLSecurityDSig
 	 * Defines the xades namespace to use
 	 * @var string
 	 */
-	private $currentNamespace = self::NamespaceUrl2016;
+	protected $currentNamespace = self::NamespaceUrl2016;
 
 	/**
 	 * The reference to the name of the file containing the Xml to be signed.
@@ -148,7 +149,7 @@ class XAdES extends XMLSecurityDSig
 	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
 		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
-
+		
 		if ( is_array( $options ) )
 		{
 			$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
@@ -331,6 +332,10 @@ class XAdES extends XMLSecurityDSig
 	 */
 	public function signXAdESFile( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $canonicalizationMethod = self::C14N, $addTimestamp = false )
 	{
+		global $xadesNamespace;
+		if ( $xadesNamespace )
+			$this->currentNamespace = $xadesNamespace;
+
 		if ( is_string( $xmlResource ) )
 		{
 			// If a simple string is passed in, assume it is a file name
@@ -941,14 +946,15 @@ class XAdES extends XMLSecurityDSig
 			$cert = $loader->fromFile( $certificate );
 		}
 
-		$signingCertificate = SigningCertificateV2::fromCertificate( $cert, $issuer );
+		$signingCertificate = null; // SigningCertificate::fromCertificate( $cert );
+		$signingCertificateV2 = SigningCertificateV2::fromCertificate( $cert, $issuer );
 
 		$qualifyingProperties = new QualifyingProperties(
 			new SignedProperties(
 				new SignedSignatureProperties(
 					new SigningTime(),
-					null, // signingCertificate
 					$signingCertificate,
+					$signingCertificateV2,
 					$this->getSignaturePolicyIdentifier(),
 					$signatureProductionPlace instanceof SignatureProductionPlace ? $signatureProductionPlace : null,
 					$signatureProductionPlace instanceof SignatureProductionPlaceV2 ? $signatureProductionPlace : null,
