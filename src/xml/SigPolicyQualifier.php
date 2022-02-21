@@ -24,8 +24,9 @@ class SigPolicyQualifier extends Generic
 	 *
 	 * @param string|XmlCore $childNode
 	 */
-	public function __construct( $childNode )
+	public function __construct( $childNode = null )
 	{
+		parent::__construct( $this->getLocalName() );
 		$this->childNodes = array();
 		$this->defaultNamespace = XmlCore::getDefaultNamespace();
 

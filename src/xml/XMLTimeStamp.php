@@ -22,6 +22,21 @@ namespace lyquidity\xmldsig\xml;
 class XMLTimeStamp extends Generic
 {
 	/**
+	 * Allow a user to pass in the objects for which elements are to be created
+	 * Would be nice to used named parameters here but that ties the code v8.0
+	 * @param string $localName	 
+	 * @param string $prefix	 
+	 * @param string $namespace
+	 * @param string[] $attributes
+	 * @param XmlCore[] $childNodes
+	 * @param bool $preserveWhitespace (optional default false)
+	 */
+	public function __construct( $localName = null, $prefix = null, $namespace = null, $attributes = null, $childNodes = null, $preserveWhitespace = false )
+	{
+		parent::__construct( $localName ?? $this->getLocalName(), $prefix, $namespace, $attributes, $childNodes, $preserveWhitespace );
+	}
+
+	/**
 	 * Returns the instance local name
 	 * @return string
 	 */
