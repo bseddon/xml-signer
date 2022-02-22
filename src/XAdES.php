@@ -399,10 +399,17 @@ class XAdES extends XMLSecurityDSig
 
 		$this->fileBeingSigned = $xmlResource;
 
+		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
+		$prefix = 'xa';
+		if ( isset( $namespaces[ $this->currentNamespace ] ) )
+		{
+			$prefix = $namespaces[ $this->currentNamespace ];
+		}
+
 		$xpath = new \DOMXPath( $doc );
 		$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
-		$xpath->registerNamespace( 'xa', $this->currentNamespace );
-		$xpath->registerNamespace( 'xa141', self::NamespaceUrl1v41 );
+		$xpath->registerNamespace( $prefix, $this->currentNamespace );
+		// $xpath->registerNamespace( 'xa141', self::NamespaceUrl1v41 );
 		$hasSignature = $xpath->query( '//ds:Signature' )->count() > 0;
 		if ( ! $xmlResource->detached && $hasSignature )
 		{
@@ -431,7 +438,7 @@ class XAdES extends XMLSecurityDSig
 		// is attached the importNode function does not add a 'default' prefix.
 		// if ( ! $xmlResource->detached )
 		{
-			$qualifyingProperties->traverse( function( XmlCore $node )
+			$qualifyingProperties->traverse( function( XmlCore $node ) use ( $prefix )
 			{
 				$node->node = null;
 				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
@@ -440,7 +447,7 @@ class XAdES extends XMLSecurityDSig
 						$node->prefix = 'dsig-xpath';
 					return;
 				}
-				$node->prefix = 'xa';
+				$node->prefix = $prefix;
 			} );
 		}
 
@@ -450,8 +457,8 @@ class XAdES extends XMLSecurityDSig
 
 		// Get the specific node to be included in the signature
         $xpath = $this->getXPathObj();
-        $xpath->registerNamespace( 'xa', $this->currentNamespace );
-        $nodes = $xpath->query("./xa:QualifyingProperties/xa:SignedProperties[\"@Id={$this->signatureId}\"]", $object );
+        $xpath->registerNamespace( $prefix, $this->currentNamespace );
+        $nodes = $xpath->query("./{$prefix}:QualifyingProperties/{$prefix}:SignedProperties[\"@Id={$this->signatureId}\"]", $object );
         if ( ! $nodes->length )
 			throw new XAdESException();
 		unset( $object );
@@ -579,7 +586,7 @@ class XAdES extends XMLSecurityDSig
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
 			$namespaces = array( 
-				'xa' => $this->currentNamespace,
+				$prefix => $this->currentNamespace,
 				'dsig-xpath' => self::XPATH_FILTER2 
 			);
 			$clauses = array_map( 
@@ -687,9 +694,16 @@ class XAdES extends XMLSecurityDSig
 
 		$this->fileBeingSigned = $xmlResource;
 
+		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
+		$prefix = 'xa';
+		if ( isset( $namespaces[ $this->currentNamespace ] ) )
+		{
+			$prefix = $namespaces[ $this->currentNamespace ];
+		}
+
 		$xpath = new \DOMXPath( $doc );
 		$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
-		$xpath->registerNamespace( 'xa', $this->currentNamespace );
+		$xpath->registerNamespace( $prefix, $this->currentNamespace );
 		$hasSignature = $xpath->query( '//ds:Signature' )->count() > 0;
 		if ( ! $xmlResource->detached && $hasSignature )
 		{
@@ -716,7 +730,7 @@ class XAdES extends XMLSecurityDSig
 		// If the signature is to be attached, add a prefix so when the signature 
 		// is attached the importNode function does not add a 'default' prefix.
 		// if ( ! $xmlResource->detached )
-		$qualifyingProperties->traverse( function( XmlCore $node )
+		$qualifyingProperties->traverse( function( XmlCore $node ) use( $prefix )
 		{
 			if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
 			{
@@ -724,7 +738,7 @@ class XAdES extends XMLSecurityDSig
 					$node->prefix = 'dsig-xpath';
 				return;
 			}
-			$node->prefix = 'xa';
+			$node->prefix = $prefix;
 		} );
 
 		// Add the Xml to the signature
@@ -733,8 +747,8 @@ class XAdES extends XMLSecurityDSig
 
 		// Get the specific node to be included in the signature
         $xpath = $this->getXPathObj();
-        $xpath->registerNamespace( 'xa', $this->currentNamespace );
-        $nodes = $xpath->query("./xa:QualifyingProperties/xa:SignedProperties[\"@Id={$this->signatureId}\"]", $object );
+        $xpath->registerNamespace( $prefix, $this->currentNamespace );
+        $nodes = $xpath->query("./{$prefix}:QualifyingProperties/{$prefix}:SignedProperties[\"@Id={$this->signatureId}\"]", $object );
         if ( ! $nodes->length )
 			throw new XAdESException();
 		unset( $object );
@@ -833,7 +847,7 @@ class XAdES extends XMLSecurityDSig
 			// DOMElement::importNode screws around with namespaces. In this case it will
 			// add the XAdES namespace to the <Signature> node.  This needs to be removed.
 			$namespaces = array( 
-				'xa' => $this->currentNamespace,
+				$prefix => $this->currentNamespace,
 				'dsig-xpath' => self::XPATH_FILTER2 
 			);
 			$clauses = array_map( 
@@ -1434,10 +1448,18 @@ class XAdES extends XMLSecurityDSig
 		// Make sure there is a useful property id even when null is passed in
 		$propertyId = $propertyId ?? 'timestamp';
 
+		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
+		$prefix = 'xa';
+		if ( isset( $namespaces[ $this->currentNamespace ] ) )
+		{
+			$prefix = $namespaces[ $this->currentNamespace ];
+		}
+
 		// Things done here may be sometimes repeat those done elsewhere.  This is so the 
 		// function can be called independently of creating a new signature.
 		$xpath = new \DOMXPath( $doc );
         $xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
+        $xpath->registerNamespace( 'xa', $this->currentNamespace );
         $nodes = $this->signatureId
 			? $xpath->query( "//ds:Signature[@Id=\"{$this->signatureId}\"]" )
 			: $xpath->query( "//ds:Signature" );
@@ -1473,8 +1495,15 @@ class XAdES extends XMLSecurityDSig
 
 		$timestamp->validateElement();
 
-        $xpath->registerNamespace( 'xa', $this->currentNamespace );
-		$qualifyingProperties = $xpath->query("./ds:Object/xa:QualifyingProperties", $signature );
+		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
+		$prefix = 'xa';
+		if ( isset( $namespaces[ $this->currentNamespace ] ) )
+		{
+			$prefix = $namespaces[ $this->currentNamespace ];
+		}
+
+        $xpath->registerNamespace( $prefix, $this->currentNamespace );
+		$qualifyingProperties = $xpath->query("./ds:Object/{$prefix}:QualifyingProperties", $signature );
 
 		if ( ! $qualifyingProperties || $qualifyingProperties->count() != 1 )
 			throw new XAdESException("<QualifyingProperties> not found or invalid");
@@ -2359,9 +2388,16 @@ class XAdES extends XMLSecurityDSig
 		$this->fileBeingSigned = $xmlResource;
 		$this->signatureId = $xmlResource->id;
 	
+		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
+		$prefix = 'xa';
+		if ( isset( $namespaces[ $this->currentNamespace ] ) )
+		{
+			$prefix = $namespaces[ $this->currentNamespace ];
+		}
+
 		$xpath = new \DOMXPath( $doc );
 		$xpath->registerNamespace( 'ds', XMLSecurityDSig::XMLDSIGNS );
-		$xpath->registerNamespace( 'xa', $this->currentNamespace );
+		$xpath->registerNamespace( $prefix, $this->currentNamespace );
 		$query = '//ds:Signature';
 		if ( $xmlResource->id )
 			$query .= "[@Id='{$this->signatureId}']";
@@ -2411,7 +2447,7 @@ class XAdES extends XMLSecurityDSig
 
 			// A counter signature is NEVER detatched so add a prefix so when the signature 
 			// is attached the importNode function does not add a 'default' prefix.
-			$qualifyingProperties->traverse( function( XmlCore $node )
+			$qualifyingProperties->traverse( function( XmlCore $node ) use( $prefix )
 			{
 				if ( $node->defaultNamespace && $node->defaultNamespace != $this->currentNamespace )
 				{
@@ -2419,7 +2455,7 @@ class XAdES extends XMLSecurityDSig
 						$node->prefix = 'dsig-xpath';
 					return;
 				}
-				$node->prefix = 'xa';
+				$node->prefix = $prefix;
 			} );
 
 			// Add the Xml to the signature
@@ -2428,8 +2464,8 @@ class XAdES extends XMLSecurityDSig
 
 			// Get the specific node to be included in the signature
 			$xpath = $xmlDSig->getXPathObj();
-			$xpath->registerNamespace( 'xa', $this->currentNamespace );
-			$nodes = $xpath->query("./xa:QualifyingProperties/xa:SignedProperties[\"@Id={$referenceId}\"]", $object );
+			$xpath->registerNamespace( $prefix, $this->currentNamespace );
+			$nodes = $xpath->query("./{$prefix}:QualifyingProperties/{$prefix}:SignedProperties[\"@Id={$referenceId}\"]", $object );
 			if ( ! $nodes->length )
 				throw new XAdESException();
 			unset( $object );
