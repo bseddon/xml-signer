@@ -40,6 +40,12 @@ class InputResourceInfo extends BaseInputResourceInfo
 	 */
 	public $signatureId = null;
 
+	/** 
+	 * Allows a caller to show the file is large so the LIBXML_PARSEHUGE flag will be used
+	 * This is not relevant for an existing DOM document
+	 */
+	public $hugeFile = false;
+
 	/**
 	 * Returns true if the transforms contains one that is enveloped
 	 *
@@ -61,13 +67,15 @@ class InputResourceInfo extends BaseInputResourceInfo
 	 * @param Transforms $transforms (optional)
 	 * @param bool $detached (optional: default = true)
 	 * @param string $signatureId (optional)
+	 * @param bool $hugeFile (optional) For use where there is a huge text node (> 10MB)
 	 */
-	public function __construct( $resource, $type = self::file, $saveLocation = null, $saveFilename = null, $transforms = null, $detached = true, $signatureId = null )
+	public function __construct( $resource, $type = self::file, $saveLocation = null, $saveFilename = null, $transforms = null, $detached = true, $signatureId = null, $hugeFile = false )
 	{
 		parent::__construct( $resource, $type, $saveLocation, $saveFilename );
 		$this->transforms = $transforms;
 		$this->detached = $detached;
 		$this->signatureId = $signatureId;
+		$this->hugeFile = $hugeFile;
 
 		if ( ! $this->isFile() ) return;
 
@@ -124,7 +132,7 @@ class InputResourceInfo extends BaseInputResourceInfo
 
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			$doc->load($this->resource);
+			$doc->load( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE : null );
 		} 
 		else if ( $this->isXmlDocument() )
 		{
@@ -134,7 +142,7 @@ class InputResourceInfo extends BaseInputResourceInfo
 		{
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			if ( ! $doc->load( $this->resource ) )
+			if ( ! $doc->load( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE : null ) )
 			{
 				throw new XAdESException( "URL does not reference a valid XML document" );
 			}
@@ -142,7 +150,7 @@ class InputResourceInfo extends BaseInputResourceInfo
 		else if ($this->isString())
 		{
 			$doc = new \DOMDocument();
-			if ( ! $doc->loadXML( $this->resource ) )
+			if ( ! $doc->loadXML( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE : null ) )
 			{
 				throw new XAdESException( "Unable to load XML string" );
 			}
