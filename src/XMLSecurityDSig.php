@@ -612,7 +612,9 @@ class XMLSecurityDSig
                     {
                         if ($node->localName == 'XPath') 
                         {
+							// BMS 2022-02-24 Don't know why an explicit query is being treated as a filter
                             $arXPath['query'] = '(.//. | .//@* | .//namespace::*)[' . $node->nodeValue . ']';
+                            // $arXPath['query'] = $node->nodeValue;
                             // $arXPath['namespaces'] = array( $node->prefix => $node->namespaceURI );
                             $nslist = $xpath->query('./namespace::*', $node);
                             foreach ($nslist AS $nsnode)
