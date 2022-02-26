@@ -475,9 +475,23 @@ class XAdES extends XMLSecurityDSig
 			)
 		);
 
+		// Check if a URI has been given that might be an Id
+		$node = $doc;
+		if ( ! $xmlResource->detached && $xmlResource->uri && ! filter_var( $xmlResource->uri, FILTER_VALIDATE_URL ) )
+		{
+			$node = false;
+			$xpath = new \DOMXPath( $doc );
+			$nodes = $xpath->query( "//*[@Id='{$xmlResource->uri}']" );
+			if ( $nodes && $nodes->count() )
+			{
+				$node = $nodes[0];
+				$xmlResource->uri = '#' . $xmlResource->uri;
+			}
+		}
+
 		// Sign using SHA-256
 		$this->addReference(
-			$doc, // Content
+			$node, // Content
 			XMLSecurityDSig::SHA256, // Algorithm
 			$xmlResource->convertTransforms( ! $xmlResource->detached ), // Transforms
 			array( // Options
@@ -486,7 +500,7 @@ class XAdES extends XMLSecurityDSig
 						? XMLSecurityDSig::encodedUrl( parse_url( $xmlResource->resource ) ) 
 						: basename( $xmlResource->resource )
 					  )
-					: true,
+					: $xmlResource->uri ?? true,
 				'id' => $referenceId,
 			)
 		);

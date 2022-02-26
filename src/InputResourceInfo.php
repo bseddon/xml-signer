@@ -47,6 +47,13 @@ class InputResourceInfo extends BaseInputResourceInfo
 	public $hugeFile = false;
 
 	/**
+	 * The value of an id to select when signing
+	 *
+	 * @var string
+	 */
+	public $uri = null;
+
+	/**
 	 * Returns true if the transforms contains one that is enveloped
 	 *
 	 * @var boolean
