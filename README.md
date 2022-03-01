@@ -252,6 +252,30 @@ new KeyResourceInfo( $store['pkey'], ResourceInfo::string() | ResourceInfo::bina
 
 The resource for each is the appropriate elements of the array returned by **openssl_pkcs12_read** function.  The flags used let the processor know the contents will be a text string or a binary string and will be PEM encoded.
 
+### Signing node sub-set by Id value
+
+Using one or more Transforms to select the nodes to be signed is a very flexible mechanism.  However a Transform cannot select a group of nodes by an Id value though this is a useful thing to be able to do.  To select a group of nodes to sign by an Id value use the $uri propery of the InputResourceInfo class:
+
+```php
+	$input = new InputResourceInfo(
+		'http://www.xbrlquery.com/xades/hashes for nba.xml', // The source document
+		ResourceInfo::url, // The source is a url
+		__DIR__, // The location to save the signed document
+		'hashes for nba with signature.xml' // The name of the file to save the signed document in
+	);
+
+	$input->uri = 'TheIdValue';
+```
+
+Note this property cannot be set via the constructor so an explicit instance of InputResourceInfo must be created.
+
+### Large text nodes
+
+XML handling in PHP is handled by the third party library LibXML2.  By default this library will 'only' read the first 10MB of a text node so this is also the default behaviour of all XML functions in PHP.  If the node contains more text, PHP will emit a warning.  For some applications this behaviour may be OK but for a signing application it is not appropriate. 
+
+In recent versions of LibXML2 a flag can be set to change the default behaviour so that all available text is read.  Since PHP version 5.3 this flag can be passed to any function that loads XML.  This flag can be enabled in this project by setting the boolean $hugeFile propery of the InputResourceInfo class to true.  The default default value of this proprerty is false so default XML handling is used by default.
+
+This property can be set in the constructor of the InputResourceInfo class by setting the last parameter to true or false.
 
 ## How to Install
 
