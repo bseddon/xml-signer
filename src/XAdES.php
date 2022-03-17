@@ -118,6 +118,8 @@ class XAdES extends XMLSecurityDSig
 	const SignatureRootId = "signature-root";
 	const SignatureFilename = "signature.xml";
 
+	public static $xadesPrefix = 'xa';
+
 	// All the XPath queries assume ds=XMLSecurityDSig::XMLDSIGNS and xa=self::NamespaceUrl
 	// const unsignedPropertiesQuery = "/ds:Signature/ds:Object/xa:QualifyingProperties/xa:unsignedProperties[@Id=\"" . self::UnsignedPropertiesId . "\"]";
 
@@ -148,12 +150,15 @@ class XAdES extends XMLSecurityDSig
 	 */
 	public static function signDocument( $xmlResource, $certificateResource, $keyResource = null, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
-		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		$prefix = $options['prefix'] ?? XMLSecurityDSig::defaultPrefix;
+
+		$instance = new static( $prefix, $xmlResource->signatureId );
 		
 		if ( is_array( $options ) )
 		{
 			$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
 			$addTimestamp = $options[ ADDTIMESTAMP ] ?? false;
+			self::$xadesPrefix = $options['xadesPrefix'] ?? self::$xadesPrefix;
 		}
 		else
 		{
@@ -182,7 +187,10 @@ class XAdES extends XMLSecurityDSig
 	 */
 	public static function getCanonicalizedSI( $xmlResource, $certificateResource, $signatureProductionPlace = null, $signerRole = null, $options = array() )
 	{
-		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		$prefix = $options['prefix'] ?? XMLSecurityDSig::defaultPrefix;
+		self::$xadesPrefix = $options['xadesPrefix'] ?? self::$xadesPrefix;
+
+		$instance = new static( $prefix, $xmlResource->signatureId );
 
 		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
 		$addTimestamp = $options[ ADDTIMESTAMP ] ?? false;
@@ -400,7 +408,7 @@ class XAdES extends XMLSecurityDSig
 		$this->fileBeingSigned = $xmlResource;
 
 		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
-		$prefix = 'xa';
+		$prefix = static::$xadesPrefix;
 		if ( isset( $namespaces[ $this->currentNamespace ] ) )
 		{
 			$prefix = $namespaces[ $this->currentNamespace ];
@@ -709,7 +717,7 @@ class XAdES extends XMLSecurityDSig
 		$this->fileBeingSigned = $xmlResource;
 
 		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
-		$prefix = 'xa';
+		$prefix = static::$xadesPrefix;
 		if ( isset( $namespaces[ $this->currentNamespace ] ) )
 		{
 			$prefix = $namespaces[ $this->currentNamespace ];
@@ -1463,7 +1471,7 @@ class XAdES extends XMLSecurityDSig
 		$propertyId = $propertyId ?? 'timestamp';
 
 		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
-		$prefix = 'xa';
+		$prefix = static::$xadesPrefix;
 		if ( isset( $namespaces[ $this->currentNamespace ] ) )
 		{
 			$prefix = $namespaces[ $this->currentNamespace ];
@@ -1510,7 +1518,7 @@ class XAdES extends XMLSecurityDSig
 		$timestamp->validateElement();
 
 		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
-		$prefix = 'xa';
+		$prefix = static::$xadesPrefix;
 		if ( isset( $namespaces[ $this->currentNamespace ] ) )
 		{
 			$prefix = $namespaces[ $this->currentNamespace ];
@@ -2403,7 +2411,7 @@ class XAdES extends XMLSecurityDSig
 		$this->signatureId = $xmlResource->id;
 	
 		$namespaces = array_flip( XmlCore::getNamespaces( $doc ) );
-		$prefix = 'xa';
+		$prefix = static::$xadesPrefix;
 		if ( isset( $namespaces[ $this->currentNamespace ] ) )
 		{
 			$prefix = $namespaces[ $this->currentNamespace ];

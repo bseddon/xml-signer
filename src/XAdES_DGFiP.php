@@ -13,18 +13,11 @@
 namespace lyquidity\xmldsig;
 
 use lyquidity\OCSP\CertificateLoader;
-use lyquidity\xmldsig\xml\AttributeNames;
-use lyquidity\xmldsig\xml\CommitmentTypeId;
-use lyquidity\xmldsig\xml\CommitmentTypeIndication;
-use lyquidity\xmldsig\xml\ElementNames;
-use lyquidity\xmldsig\xml\Generic;
 use lyquidity\xmldsig\xml\QualifyingProperties;
-use lyquidity\xmldsig\xml\Signature;
 use lyquidity\xmldsig\xml\SignaturePolicyId;
 use lyquidity\xmldsig\xml\SignaturePolicyIdentifier;
 use lyquidity\xmldsig\xml\SignatureProductionPlace;
 use lyquidity\xmldsig\xml\SignatureProductionPlaceV2;
-use lyquidity\xmldsig\xml\SignedDataObjectProperties;
 use lyquidity\xmldsig\xml\SignedProperties;
 use lyquidity\xmldsig\xml\SignedSignatureProperties;
 use lyquidity\xmldsig\xml\SignerRole;
@@ -36,7 +29,6 @@ use lyquidity\xmldsig\xml\SigPolicyId;
 use lyquidity\xmldsig\xml\SigPolicyQualifier;
 use lyquidity\xmldsig\xml\SigPolicyQualifiers;
 use lyquidity\xmldsig\xml\SPURI;
-use lyquidity\xmldsig\xml\Transforms;
 
 class XAdES_DGFiP extends XAdES
 {
@@ -60,7 +52,7 @@ class XAdES_DGFiP extends XAdES
 	 * It can be regenerated like:
 	 * 	base64_encode( hash( 'sha256', file_get_contents( XAdES_DGFiP::policyDocumentUrl ) ) );
 	 */
-	const policyHash = 'GbP1WjbTrHp6h9zlsz5RN7AqkJbnDNDOAQzgm1qzIJ4=';
+	const policyHash = 'GbP1WjbTrHp6h9zlsz5RN7AqkJbnDNDOAQzgm1qzIJ=';
 
 	const policyHashAlgorithm = '';
 
@@ -82,7 +74,10 @@ class XAdES_DGFiP extends XAdES
 		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
 		$addTimestamp = $options['addTimestamp'] ?? false;
 
-		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		$prefix = $options['prefix'] ?? XMLSecurityDSig::defaultPrefix;
+		self::$xadesPrefix = $options['xadesPrefix'] ?? self::$xadesPrefix;
+
+		$instance = new static( $prefix, $xmlResource->signatureId );
 		
 		$instance->signXAdESFile( $xmlResource, $certificateResource, $keyResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 		return $instance;
@@ -107,7 +102,10 @@ class XAdES_DGFiP extends XAdES
 		$canonicalizationMethod =  $options['canonicalizationMethod'] ?? self::C14N;
 		$addTimestamp = $options['addTimestamp'] ?? false;
 
-		$instance = new static( XMLSecurityDSig::defaultPrefix, $xmlResource->signatureId );
+		$prefix = $options['prefix'] ?? XMLSecurityDSig::defaultPrefix;
+		self::$xadesPrefix = $options['xadesPrefix'] ?? self::$xadesPrefix;
+
+		$instance = new static( $prefix, $xmlResource->signatureId );
 
 		return $instance->getCanonicalizedSignedInfo( $xmlResource, $certificateResource, $signatureProductionPlace, $signerRole, $canonicalizationMethod, $addTimestamp );
 	}
