@@ -29,7 +29,7 @@ class DigestValue extends Base64String
 {
 	/**
 	 * Create an instance with text
-	 * @param string $description
+	 * @param string $base64
 	 */
 	public function __construct( $base64 = null )
 	{
