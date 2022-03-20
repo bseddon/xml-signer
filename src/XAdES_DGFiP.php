@@ -13,6 +13,8 @@
 namespace lyquidity\xmldsig;
 
 use lyquidity\OCSP\CertificateLoader;
+use lyquidity\xmldsig\xml\DigestMethod;
+use lyquidity\xmldsig\xml\DigestValue;
 use lyquidity\xmldsig\xml\QualifyingProperties;
 use lyquidity\xmldsig\xml\SignaturePolicyId;
 use lyquidity\xmldsig\xml\SignaturePolicyIdentifier;
@@ -52,7 +54,7 @@ class XAdES_DGFiP extends XAdES
 	 * It can be regenerated like:
 	 * 	base64_encode( hash( 'sha256', file_get_contents( XAdES_DGFiP::policyDocumentUrl ) ) );
 	 */
-	const policyHash = 'GbP1WjbTrHp6h9zlsz5RN7AqkJbnDNDOAQzgm1qzIJ=';
+	const policyHash = 'GbP1WjbTrHp6h9zlsz5RN7AqkJbnDNDOAQzgm1qzIJ4=';
 
 	const policyHashAlgorithm = '';
 
@@ -178,7 +180,7 @@ class XAdES_DGFiP extends XAdES
 			$cert = $loader->fromFile( $certificate );
 		}
 
-		$signingCertificate = SigningCertificate::fromCertificate( $cert );
+		$signingCertificate = null; // SigningCertificate::fromCertificate( $cert );
 		$signingCertificateV2 = null; // SigningCertificateV2::fromCertificate( $cert, $issuer );
 
 		$qualifyingProperties = new QualifyingProperties(
@@ -254,8 +256,10 @@ class XAdES_DGFiP extends XAdES
 				),
 				null,
 				new SigPolicyHash(
-					XMLSecurityDSig::SHA256,
-					XAdES_DGFiP::policyHash
+					// XMLSecurityDSig::SHA256,
+					new DGFiP_DigestMethod( XMLSecurityDSig::SHA256 ),
+					// XAdES_DGFiP::policyHash
+					new DGFiP_DigestValue( XAdES_DGFiP::policyHash ),
 				),
 				new SigPolicyQualifiers( 
 					new SigPolicyQualifier( new SPURI( XAdES_DGFiP::policyDocumentUrl ) )
@@ -277,6 +281,38 @@ class XAdES_DGFiP extends XAdES
 	public function validateExplicitPolicy( $signedProperties, $policyDocument )
 	{
 		// This is not yet implemented.  Signatures can be validated using the http://xemelios.org/ application.
+	}
+}
+
+/**
+ * Creates a node for &lt;DigestMethod> for DGFiP
+ */
+class DGFiP_DigestMethod extends DigestMethod
+{
+	/**
+	 * Create an instance with text
+	 * @param string $algorithm
+	 */
+	public function __construct( $algorithm = null )
+	{
+		parent::__construct( $algorithm );
+		$this->defaultNamespace = null;
+	}
+}
+
+/**
+ * Creates a node for &lt;DigestValue> for DGFiP
+ */
+class DGFiP_DigestValue extends DigestValue
+{
+	/**
+	 * Create an instance with text
+	 * @param string $base64
+	 */
+	public function __construct( $base64 = null )
+	{
+		parent::__construct( $base64 );
+		$this->defaultNamespace = null;
 	}
 }
 
