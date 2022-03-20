@@ -25,7 +25,7 @@ use lyquidity\xmldsig\XMLSecurityDSig;
  */
 
 /**
- * Creates a node for &lt;Description>
+ * Creates a node for &lt;DigestMethod>
  */
 class DigestMethod extends XmlCore
 {
