@@ -331,8 +331,11 @@ class Generic extends XmlCore
 			throw new \Exception("The element local name must be valid");
 		}
 
-		foreach( $this->childNodes as $childNode )
-			$childNode->validateElement();
+        if ( $this->childNodes )
+        {
+		    foreach( $this->childNodes as $childNode )
+			    $childNode->validateElement();
+        }
 	}
 
 	/**
