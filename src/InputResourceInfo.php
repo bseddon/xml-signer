@@ -40,12 +40,6 @@ class InputResourceInfo extends BaseInputResourceInfo
 	 */
 	public $signatureId = null;
 
-	/** 
-	 * Allows a caller to show the file is large so the LIBXML_PARSEHUGE flag will be used
-	 * This is not relevant for an existing DOM document
-	 */
-	public $hugeFile = false;
-
 	/**
 	 * The value of an id to select when signing
 	 *

@@ -29,6 +29,12 @@ abstract class BaseInputResourceInfo extends ResourceInfo
 	 */
 	public $saveFilename = null;
 
+	/** 
+	 * Allows a caller to show the file is large so the LIBXML_PARSEHUGE flag will be used
+	 * This is not relevant for an existing DOM document
+	 */
+	public $hugeFile = false;
+
 	/**
 	 * Create signature resource descriptor
 	 * @param string $resource
