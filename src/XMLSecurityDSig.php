@@ -9,7 +9,9 @@ use \DOMXPath;
 use \Exception;
 use \lyquidity\xmldsig\Utils\XPath as UtilsXPath;
 use lyquidity\xmldsig\xml\AttributeNames;
+use lyquidity\xmldsig\xml\DataObjectFormat;
 use lyquidity\xmldsig\xml\ElementNames;
+use lyquidity\xmldsig\xml\MimeType;
 use lyquidity\xmldsig\xml\XPathFilterName;
 
 /**
@@ -110,6 +112,8 @@ class XMLSecurityDSig
     const CXPATH = 'http://www.w3.org/TR/1999/REC-xpath-19991116';
     const BASE64 = 'http://www.w3.org/2000/09/xmldsig#base64';
     const XSLT = 'http://www.w3.org/TR/1999/REC-xslt-19991116';
+
+	const MimeTypeXML = 'text/xml';
 
     const xmlNamespace = "http://www.w3.org/2000/xmlns/";
 
@@ -535,129 +539,143 @@ class XMLSecurityDSig
      * @param $refNode The reference node
      * @param DOMNode $objData The data to be transformed
      * @param bool $includeCommentNodes Allow the use of comments to be overridded for example if the reference uri is null or empty
+	 * @param string $dataFile A path to a file to be used as a data object when there are no transforms
      * @return string
      */
-    public function processTransforms( $refNode, $objData, $includeCommentNodes = true )
+    public function processTransforms( $refNode, $objData, $includeCommentNodes = true, $dataFile = null )
     {
         $xpath = new DOMXPath( $refNode->ownerDocument );
         $xpath->registerNamespace( self::searchpfx, self::XMLDSIGNS );
         $query = "./". self::searchpfx . ":Transforms/". self::searchpfx . ":Transform";
         $transforms = $xpath->query( $query, $refNode );
 
-        foreach ( $transforms AS $transform )
-        {
-            /** @var \DOMElement $transform */
+		if ( $transforms->count() )
+		{
+			foreach ( $transforms AS $transform )
+			{
+				/** @var \DOMElement $transform */
 
-            $arXPath = null;
-            $prefixList = null;
-            $canonicalMethod = self::C14N;
-            
-            if ( is_string( $objData ) )
-            {
-                $doc = new \DOMDocument();
-                $doc->loadXML( $objData );
-                $objData = $doc;
-                unset( $doc );
-            }
+				$arXPath = null;
+				$prefixList = null;
+				$canonicalMethod = self::C14N;
+				
+				if ( is_string( $objData ) )
+				{
+					$doc = new \DOMDocument();
+					$doc->loadXML( $objData );
+					$objData = $doc;
+					unset( $doc );
+				}
 
-            $algorithm = $transform->getAttribute("Algorithm");
+				$algorithm = $transform->getAttribute("Algorithm");
 
-            switch ($algorithm)
-            {
-                case self::EXC_C14N:
-                case self::EXC_C14N_COMMENTS:
+				switch ($algorithm)
+				{
+					case self::EXC_C14N:
+					case self::EXC_C14N_COMMENTS:
 
-                    // We remove comment nodes by forcing it to use a canonicalization without comments
-                    $canonicalMethod = $includeCommentNodes ? $algorithm : self::EXC_C14N;
+						// We remove comment nodes by forcing it to use a canonicalization without comments
+						$canonicalMethod = $includeCommentNodes ? $algorithm : self::EXC_C14N;
 
-                    $node = $transform->firstChild;
-                    while ( $node ) 
-                    {
-                        if ( $node->localName == 'InclusiveNamespaces')
-                        {
-                            if ( $pfx = $node->getAttribute('PrefixList') ) 
-                            {
-                                $arpfx = array();
-                                $pfxlist = explode( " ", $pfx );
-                                foreach ( $pfxlist AS $pfx ) 
-                                {
-                                    $val = trim( $pfx );
-                                    if ( ! empty( $val  )) 
-                                    {
-                                        $arpfx[] = $val;
-                                    }
-                                }
-                                if ( count($arpfx) > 0)
-                                {
-                                    $prefixList = $arpfx;
-                                }
-                            }
-                            break;
-                        }
-                        $node = $node->nextSibling;
-                    }
-                    break;
+						$node = $transform->firstChild;
+						while ( $node ) 
+						{
+							if ( $node->localName == 'InclusiveNamespaces')
+							{
+								if ( $pfx = $node->getAttribute('PrefixList') ) 
+								{
+									$arpfx = array();
+									$pfxlist = explode( " ", $pfx );
+									foreach ( $pfxlist AS $pfx ) 
+									{
+										$val = trim( $pfx );
+										if ( ! empty( $val  )) 
+										{
+											$arpfx[] = $val;
+										}
+									}
+									if ( count($arpfx) > 0)
+									{
+										$prefixList = $arpfx;
+									}
+								}
+								break;
+							}
+							$node = $node->nextSibling;
+						}
+						break;
 
-                case self::C14N:
-                case self::C14N_COMMENTS:
+					case self::C14N:
+					case self::C14N_COMMENTS:
 
-                    // We remove comment nodes by forcing it to use a canonicalization without comments
-                    $canonicalMethod = $includeCommentNodes ? $algorithm : self::C14N;
-                    break;
+						// We remove comment nodes by forcing it to use a canonicalization without comments
+						$canonicalMethod = $includeCommentNodes ? $algorithm : self::C14N;
+						break;
 
-                case self::CXPATH:
+					case self::CXPATH:
 
-                    $node = $transform->firstChild;
-                    while ( $node )
-                    {
-                        if ($node->localName == 'XPath') 
-                        {
-							// BMS 2022-02-24 Don't know why an explicit query is being treated as a filter
-                            $arXPath['query'] = '(.//. | .//@* | .//namespace::*)[' . $node->nodeValue . ']';
-                            // $arXPath['query'] = $node->nodeValue;
-                            // $arXPath['namespaces'] = array( $node->prefix => $node->namespaceURI );
-                            $nslist = $xpath->query('./namespace::*', $node);
-                            foreach ($nslist AS $nsnode)
-                            {
-                                if ($nsnode->localName == "xml") continue;
-                                $arXPath['namespaces'][$nsnode->localName] = $nsnode->nodeValue;
-                            }
-                            break;
-                        }
-                        $node = $node->nextSibling;
-                    }
+						$node = $transform->firstChild;
+						while ( $node )
+						{
+							if ($node->localName == 'XPath') 
+							{
+								// BMS 2022-02-24 Don't know why an explicit query is being treated as a filter
+								$arXPath['query'] = '(.//. | .//@* | .//namespace::*)[' . $node->nodeValue . ']';
+								// $arXPath['query'] = $node->nodeValue;
+								// $arXPath['namespaces'] = array( $node->prefix => $node->namespaceURI );
+								$nslist = $xpath->query('./namespace::*', $node);
+								foreach ($nslist AS $nsnode)
+								{
+									if ($nsnode->localName == "xml") continue;
+									$arXPath['namespaces'][$nsnode->localName] = $nsnode->nodeValue;
+								}
+								break;
+							}
+							$node = $node->nextSibling;
+						}
 
-                    break ;
+						break ;
 
-                case self::XPATH_FILTER2:
-                    
-                    $filter = new XmlDsigFilterTransform( $objData );
-                    $filter->LoadinnerXml( $transform->childNodes );
-                    // The nodes list is the result of the filter
-                    $nodeList = $filter->getOutput();
-                    // Create an XML document as a string from the node list
-                    $exclude = $algorithm == self::EXC_C14N || $algorithm == self::EXC_C14N_COMMENTS;
-                    $objData = XmlDsigFilterTransform::nodesetToXml( $nodeList, $exclude, $includeCommentNodes );
-                    continue 2;
+					case self::XPATH_FILTER2:
+						
+						$filter = new XmlDsigFilterTransform( $objData );
+						$filter->LoadinnerXml( $transform->childNodes );
+						// The nodes list is the result of the filter
+						$nodeList = $filter->getOutput();
+						// Create an XML document as a string from the node list
+						$exclude = $algorithm == self::EXC_C14N || $algorithm == self::EXC_C14N_COMMENTS;
+						$objData = XmlDsigFilterTransform::nodesetToXml( $nodeList, $exclude, $includeCommentNodes );
+						continue 2;
 
-                case self::ENV_SIG:
+					case self::ENV_SIG:
 
-                    $canonicalMethod = $includeCommentNodes ? self::C14N_COMMENTS : self::C14N;
+						$canonicalMethod = $includeCommentNodes ? self::C14N_COMMENTS : self::C14N;
 
-                    $arXPath['namespaces'] = array( 'ds' => self::XMLDSIGNS );
-                    $arXPath['query'] = '(.//. | .//@* | .//namespace::*)[not(ancestor-or-self::ds:Signature)]';
+						$arXPath['namespaces'] = array( 'ds' => self::XMLDSIGNS );
+						$arXPath['query'] = '(.//. | .//@* | .//namespace::*)[not(ancestor-or-self::ds:Signature)]';
 
-                    break;
+						break;
 
-                case self::BASE64:
-                    throw new \Exception('BASE64 Transform is not supported');
+					case self::BASE64:
+						throw new \Exception('BASE64 Transform is not supported');
 
-                case self::XSLT:
-                    throw new \Exception('XSLT Transform is not supported');
-            }
+					case self::XSLT:
+						throw new \Exception('XSLT Transform is not supported');
+				}
 
-            $objData = $this->canonicalizeData( $objData, $canonicalMethod, $arXPath, $prefixList );    
-        }
+				$objData = $this->canonicalizeData( $objData, $canonicalMethod, $arXPath, $prefixList );    
+			}
+		}
+		else
+		{
+			if ( $dataFile )
+				$objData = file_get_contents( $dataFile );
+			else
+			{
+				/** @var \DOMDocument $objData */
+				$objData = $objData->saveXML();
+			}
+		}
 
         return $objData;
     }
@@ -679,10 +697,11 @@ class XMLSecurityDSig
      * The idea is start using the document node-set (or $dataObject if one is passed)
      * then process the URI if provided then the <Transforms>
      * @param \DOMElement $refNode The <SignedInfo/reference> element being processed
-     * @param \DOMDocument $dataObject Optionally a data object (the XML being validated) can be passed in.  Might be a separate file.
+     * //param \DOMDocument $dataObject Optionally a data object (the XML being validated) can be passed in.  Might be a separate file.
+	 * @param string $mimeType (optional) The mime type of the signed document.  If not signed, XML is assumed
      * @return bool
      */
-    public function processRefNode( $refNode )
+    public function processRefNode( $refNode, $mimeType = XMLSecurityDSig::MimeTypeXML )
     {
         /*
          * Depending on the URI, we may not want to include comments in the result
@@ -690,6 +709,8 @@ class XMLSecurityDSig
          */
         $includeCommentNodes = true;
         $dataObject = null;
+		$isXml = $mimeType == XMLSecurityDSig::MimeTypeXML;
+		$dataFile = null;
 
         // If there is a URI it will define the set of nodes to include.  
         // If the URI exists but is empty, the whole document will be 
@@ -707,14 +728,17 @@ class XMLSecurityDSig
                         // 'file://...' for the document URI which is invalid so needs fixing
                     : self::resolve_path( preg_replace( '!file:/([a-z]:)!i', "file://$1", $refNode->baseURI ), urldecode( reset( $parts ) ) );
 
-                $remoteDoc = new \DOMDocument();
-                $remoteDoc->load( $dataFile );
-                $dataObject = $remoteDoc->documentElement;
-                if ( ! $dataObject )
-                    throw new \Exception("The resource ");
+				if ( $isXml )
+				{
+					$remoteDoc = new \DOMDocument();
+					$remoteDoc->load( $dataFile );
+					$dataObject = $remoteDoc->documentElement;
+					if ( ! $dataObject )
+						throw new \Exception("The resource ");
 
-                unset( $parts );
-                unset( $remoteDoc );
+					unset( $parts );
+					unset( $remoteDoc );
+				}
             }
             else
             {
@@ -756,32 +780,40 @@ class XMLSecurityDSig
                 }
             }
 
-            // Create a new document containing the filtered nodes.  This makes sure any filters
-            // are applied only to a document that will be used and not affect the source.
+			if ( $isXml )
+			{
+				// Create a new document containing the filtered nodes.  This makes sure any filters
+				// are applied only to a document that will be used and not affect the source.
 
-            // When $dataObject is not the document element would prefer to just save as XML
-            // but the save process screws around with namespaces causing a problem.  So if
-            // the object refers to a sub-node the XML is produced using C14N.  The reason
-            // being cautious about use C14N is that its performance is really terrible when
-            // the document has many nodes.
-            if ( $dataObject->isSameNode( $dataObject->ownerDocument->documentElement ) )
-            {
-               $xml = $dataObject->ownerDocument->saveXML( $dataObject );
-            }
-            else
-            {
-                $xPath = new DOMXPath( $dataObject->ownerDocument );
-                $nodeList = iterator_to_array( $xPath->query( './/. | .//@*', $dataObject ) );
-                $namespaceNodes = $xPath->query("//namespace::*");
-                foreach( $namespaceNodes as $namespaceNode )
-                    $nodeList[] = $namespaceNode;
-            
-                $xml = XmlDsigFilterTransform::nodesetToXml( $nodeList, false, $includeCommentNodes );
-            }
-            
-            $dataObject = new \DOMDocument();
-            $dataObject->loadXML( $xml );
-            unset( $xml );
+				// When $dataObject is not the document element would prefer to just save as XML
+				// but the save process screws around with namespaces causing a problem.  So if
+				// the object refers to a sub-node the XML is produced using C14N.  The reason
+				// being cautious about use C14N is that its performance is really terrible when
+				// the document has many nodes.
+				if ( $dataObject->isSameNode( $dataObject->ownerDocument->documentElement ) )
+				{
+					$xml = $dataObject->ownerDocument->saveXML( $dataObject );
+				}
+				else
+				{
+					$xPath = new DOMXPath( $dataObject->ownerDocument );
+					$nodeList = iterator_to_array( $xPath->query( './/. | .//@*', $dataObject ) );
+					$namespaceNodes = $xPath->query("//namespace::*");
+					foreach( $namespaceNodes as $namespaceNode )
+						$nodeList[] = $namespaceNode;
+				
+					$xml = XmlDsigFilterTransform::nodesetToXml( $nodeList, false, $includeCommentNodes );
+				}
+				
+				$dataObject = new \DOMDocument();
+				$dataObject->loadXML( $xml );
+				unset( $xml );
+			}
+			else
+			{
+				// Create a dummy XML document
+				$dataObject = new \DOMDocument();
+			}
         }
         else if ( ! $dataObject ) 
         {
@@ -799,7 +831,7 @@ class XMLSecurityDSig
         if ( ! $dataObject instanceof \DOMDocument )
             $dataObject = $dataObject->ownerDocument;
 
-        $data = $this->processTransforms( $refNode, $dataObject, $includeCommentNodes );
+        $data = $this->processTransforms( $refNode, $dataObject, $includeCommentNodes, $dataFile );
         if ( ! $this->validateDigest( $refNode, $data ) )
         {
             return false;
@@ -864,10 +896,11 @@ class XMLSecurityDSig
     }
 
     /**
+	 * @param DataObjectFormat[] $dataObjectFormats (optional) The mime type of the signed document.  If not signed, XML is assumed
      * @return bool|string[]
      * @throws \Exception
      */
-    public function validateReference()
+    public function validateReference( $dataObjectFormats = null )
     {
         $docElem = $this->sigNode->ownerDocument->documentElement;
         if ( ! $docElem->isSameNode( $this->sigNode ) )
@@ -892,7 +925,28 @@ class XMLSecurityDSig
 
         foreach ( $nodeset AS $refNode ) 
         {
-            $data = $this->processRefNode( $refNode );
+			// Find the data object format associated with the reference
+			$id = $refNode->getAttribute('Id');
+			$type = $refNode->getAttribute('Type');
+			$mimeType = XMLSecurityDSig::MimeTypeXML;
+
+			if ( $dataObjectFormats )
+			{
+				foreach( $dataObjectFormats as $dataObjectFormat )
+				{
+					/** @var DataObjectFormat $dataObjectFormat */
+					if ( $dataObjectFormat->objectReference == "#$id" )
+					{
+						if ( $dataObjectFormat->mimeType instanceof MimeType )
+						{
+							$mimeType = $dataObjectFormat->mimeType->text;
+							break;
+						}
+					}
+				}
+			}
+
+            $data = $this->processRefNode( $refNode, $type == XAdES::ReferenceType ? XMLSecurityDSig::MimeTypeXML : $mimeType );
             if ( $data === false )
             {
                 /* Clear the list of validated nodes. */
