@@ -1069,7 +1069,8 @@ class XAdES extends XMLSecurityDSig
 			}
 			$this->canonicalizeSignedInfo();
 
-			$return = $this->validateReference();
+			$dataObjectFormats = $qualifyingProperties->getObjectFromPath(array('SignedProperties','SignedDataObjectProperties','DataObjectFormat') );
+			$return = $this->validateReference( $dataObjectFormats );
 
 			if ( ! $return )
 			{
@@ -1150,7 +1151,7 @@ class XAdES extends XMLSecurityDSig
 					/** @var Sequence $issuerCertificate */
 					if ( ! $issuerCertificate )
 					{
-						throw new XAdESException("The issuer certificate for the certificate with serial number 'serialNumber' " . 
+						throw new XAdESException("The issuer certificate for the certificate with serial number '$serialNumber' " . 
 							"that has been used to create the signature cannot be located.  " . 
 							"It is not included in the signature and it cannot be accessed " . 
 							"using information in the signing certificate." );
@@ -1321,7 +1322,15 @@ class XAdES extends XMLSecurityDSig
 			$signatureValue = $signature->getObjectFromPath( array( 'SignatureValue' ), "Unable to locate the <SignatureValue> element when validating a TST" );
 
 			// Now valid and also pass the original data
-			$canonicalized = $this->canonicalizeData( $signatureValue->node, $signatureTimeStamp->canonicalizationMethod );
+			// Only the XMLDSig namespace should be retained
+			$canonicalized = $this->canonicalizeData( 
+				$signatureValue->node, 
+				$signatureTimeStamp->canonicalizationMethod, 
+				array( 
+					'namespaces' => array( 'ds' => XAdES::XMLDSIGNS ),
+					'query' => '(.//. | .//@* | .//namespace::ds)[ancestor-or-self::ds:Signature]'
+				)
+			);
 			if ( TSA::validateTimeStampTokenFromDER( $der, $canonicalized ) ) return;
 
 			throw new XAdESException("Unable to validate the TST");
