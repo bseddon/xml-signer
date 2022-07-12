@@ -657,7 +657,9 @@ class XMLSecurityDSig
 						break;
 
 					case self::BASE64:
-						throw new \Exception('BASE64 Transform is not supported');
+						// throw new \Exception('BASE64 Transform is not supported');
+						$objData = base64_decode($objData->textContent);
+						continue 2;
 
 					case self::XSLT:
 						throw new \Exception('XSLT Transform is not supported');
