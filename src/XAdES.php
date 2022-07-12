@@ -1188,7 +1188,12 @@ class XAdES extends XMLSecurityDSig
 							? $integer->base10()
 							: strval( $integer->getValue() );
 
+						/** @var Sequence $generalNames */
 						$generalNames = $issuer->getFirstChildOfType( UniversalTagID::SEQUENCE );
+						if ( $generalNames->at(1) instanceof Sequence )
+						{
+							$generalNames = $generalNames->at(1);
+						}
 
 						$certificateInfo = $certificateInfo ?? new CertificateInfo();
 						$dnNames = $certificateInfo->getDNStringFromNames( $generalNames );
@@ -1210,7 +1215,8 @@ class XAdES extends XMLSecurityDSig
 			if ( $issuerSerialNumber )
 				if ( $serialNumber != $issuerSerialNumber )
 				{
-					throw new XAdESException('The certificate serial number in the signature does not match the certificate serial number');
+					// throw new XAdESException('The certificate serial number in the signature does not match the certificate serial number');
+					echo "WARNING: The issuer certificate serial number in the signature does not match the issuer certificate serial number\n";
 				}
 
 			// If version 1.3.2 then there MAY be <IssuerSerialV2>
@@ -1234,6 +1240,7 @@ class XAdES extends XMLSecurityDSig
 				}
 			}
 
+			$this->validateCertificates( $objKeyInfo );
 			$this->validateUnsignedSignatureProperties( $qualifyingProperties );
 
 			// If the signature is being validated by the XAdES directly then the signature 
@@ -1254,6 +1261,17 @@ class XAdES extends XMLSecurityDSig
 
 			throw $ex;
 		}
+	}
+
+	/**
+	 * Allows a class to apply validation to one or more members of the certificate chain
+	 *
+	 * @param XMLSecurityKey $keyInfo
+	 * @return bool
+	 */
+	protected function validateCertificates( $keyInfo )
+	{
+		// By default, do nothing
 	}
 
 	protected function validateUnsignedSignatureProperties( $qualifyingProperties )
