@@ -52,13 +52,16 @@ class QualifyingProperties extends XmlCore
 	 * Create an instance of &lt;QualifyingProperties> and pass in an instance of &lt;SignedProperties> and &lt;UnsignedProperties>
 	 * @param SignedProperties $signedProperties
 	 * @param UnsignedProperties $unsignedProperties
-	 * @param string $target The character to use in the @Target
+	 * @param ?string $target The character to use in the @Target
 	 */
 	public function __construct( $signedProperties = null, $unsignedProperties = null, $target = null )
 	{
 		$this->signedProperties = self::createConstructor( $signedProperties, SignedProperties::class );
 		$this->unsignedProperties = self::createConstructor( $unsignedProperties, UnsignedProperties::class );
-		$this->target = '#' . ltrim( $target, '#' );
+		if ($target !== null) {
+			$target = ltrim( $target, '#' );
+		}
+		$this->target = '#' . $target;
 	}
 
 	/**
