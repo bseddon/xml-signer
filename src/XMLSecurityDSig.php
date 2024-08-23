@@ -343,6 +343,7 @@ class XMLSecurityDSig
                     $canonNode = $this->createNewSignNode('CanonicalizationMethod');
                     $sinfo->insertBefore( $canonNode, $sinfo->firstChild );
                 }
+                /** @var \DOMElement $canonNode */
                 $canonNode->setAttribute( AttributeNames::Algorithm, $this->canonicalMethod);
             }
         }
@@ -442,6 +443,7 @@ class XMLSecurityDSig
                     $canonicalmethod = $canonNode->getAttribute( AttributeNames::Algorithm );
                     foreach ( $canonNode->childNodes as $node )
                     {
+                        /** @var \DOMElement $node */
                         if ( $node->localName == 'InclusiveNamespaces' )
                         {
                             if ($pfx = $node->getAttribute('PrefixList'))
@@ -580,6 +582,7 @@ class XMLSecurityDSig
 						$node = $transform->firstChild;
 						while ( $node ) 
 						{
+                            /** @var \DOMElement $node */
 							if ( $node->localName == 'InclusiveNamespaces')
 							{
 								if ( $pfx = $node->getAttribute('PrefixList') ) 
@@ -928,7 +931,8 @@ class XMLSecurityDSig
         foreach ( $nodeset AS $refNode ) 
         {
 			// Find the data object format associated with the reference
-			$id = $refNode->getAttribute('Id');
+            /** @var \DOMElement $refNode */
+            $id = $refNode->getAttribute('Id');
 			$type = $refNode->getAttribute('Type');
 			$mimeType = XMLSecurityDSig::MimeTypeXML;
 
@@ -1190,11 +1194,7 @@ class XMLSecurityDSig
         }
         else
         {
-            if ( $data === null )
-            {
-                $data = '';
-            }
-            $newData = $this->sigNode->ownerDocument->createTextNode( $data );
+            $newData = $this->sigNode->ownerDocument->createTextNode( $data ?? '' );
         }
         $objNode->appendChild($newData);
 
