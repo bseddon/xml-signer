@@ -1165,7 +1165,7 @@ class XMLSecurityDSig
     }
 
     /**
-     * @param DOMElement|string $data
+     * @param DOMElement|?string $data
      * @param null|string $mimetype
      * @param null|string $encoding
      * @return DOMElement
@@ -1190,7 +1190,11 @@ class XMLSecurityDSig
         }
         else
         {
-            $newData = $this->sigNode->ownerDocument->createTextNode( $data ?? '' );
+            if ( $data === null )
+            {
+                $data = '';
+            }
+            $newData = $this->sigNode->ownerDocument->createTextNode( $data );
         }
         $objNode->appendChild($newData);
 

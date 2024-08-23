@@ -64,7 +64,7 @@ abstract class BaseInputResourceInfo extends ResourceInfo
 
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			$doc->load( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE : null );
+			$doc->load( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE  : 0 );
 		} 
 		else if ( $this->isXmlDocument() )
 		{
@@ -74,7 +74,7 @@ abstract class BaseInputResourceInfo extends ResourceInfo
 		{
 			// Load the XML to be signed
 			$doc = new \DOMDocument();
-			if ( ! $doc->load( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE : null ) )
+			if ( ! $doc->load( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE  : 0 ) )
 			{
 				throw new XAdESException( "URL does not reference a valid XML document" );
 			}
@@ -82,7 +82,7 @@ abstract class BaseInputResourceInfo extends ResourceInfo
 		else if ($this->isString())
 		{
 			$doc = new \DOMDocument();
-			if ( ! $doc->loadXML( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE : null ) )
+			if ( ! $doc->loadXML( $this->resource, $this->hugeFile ? LIBXML_PARSEHUGE  : 0 ) )
 			{
 				throw new XAdESException( "Unable to load XML string" );
 			}
