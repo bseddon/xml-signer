@@ -105,8 +105,8 @@ class XMLSecurityDSig
     const C14N_COMMENTS = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments';
     const EXC_C14N = 'http://www.w3.org/2001/10/xml-exc-c14n#';
     const EXC_C14N_COMMENTS = 'http://www.w3.org/2001/10/xml-exc-c14n#WithComments';
-    const C14N11 = 'http://www.w3.org/2006/12/xml-c14n11';
-    const C14N11_COMMENTS = 'http://www.w3.org/2006/12/xml-c14n11#WithComments';
+    const C14N11 = 'https://www.w3.org/TR/xml-c14n11/';
+    const C14N11_COMMENTS = 'https://www.w3.org/TR/xml-c14n11/#WithComments';
     const ENV_SIG = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
     const XPATH_FILTER2 = 'http://www.w3.org/2002/06/xmldsig-filter2';
     const CXPATH = 'http://www.w3.org/TR/1999/REC-xpath-19991116';
@@ -409,9 +409,10 @@ class XMLSecurityDSig
             }
         }
 
-        return $version11
-            ? $node->C14N( $exclusive, $withComments, $arXPath, $prefixList )
-            : $node->C14N( $exclusive, $withComments, $arXPath, $prefixList );
+        // return $version11
+        //     ? $node->C14N( $exclusive, $withComments, $arXPath, $prefixList )
+        //     : $node->C14N( $exclusive, $withComments, $arXPath, $prefixList );
+        return $node->C14N( $exclusive, $withComments, $arXPath, $prefixList );
     }
 
     /**
