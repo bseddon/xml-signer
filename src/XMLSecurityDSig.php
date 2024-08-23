@@ -1190,7 +1190,7 @@ class XMLSecurityDSig
         }
         else
         {
-            $newData = $this->sigNode->ownerDocument->createTextNode( $data );
+            $newData = $this->sigNode->ownerDocument->createTextNode( $data ?? '' );
         }
         $objNode->appendChild($newData);
 
